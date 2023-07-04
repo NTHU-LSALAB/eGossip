@@ -1,0 +1,10 @@
+version: '3'
+services:
+  udp_service:
+    image: xdp-gossip:latest
+    command: ["xdp-gossip", "--name", "server1" ,"--link", "eth0", "--proto", "UDP"]
+    ports:
+      - "8080:8080/udp"
+      - "8000:8000/tcp"
+    privileged: true
+
