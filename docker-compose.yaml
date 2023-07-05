@@ -1,10 +1,45 @@
 version: '3'
 services:
-  udp_service:
+  gossip_service1:
     image: xdp-gossip:latest
     command: ["xdp-gossip", "--name", "server1" ,"--link", "eth0", "--proto", "UDP"]
     ports:
-      - "8080:8080/udp"
-      - "8000:8000/tcp"
+      - "8081:8080/udp"
+      - "8001:8000/tcp"
     privileged: true
+    networks:
+      - gossip_network
 
+  gossip_service2:
+    image: xdp-gossip:latest
+    command: ["xdp-gossip", "--name", "server2" ,"--link", "eth0", "--proto", "UDP"]
+    ports:
+      - "8082:8080/udp"
+      - "8002:8000/tcp"
+    privileged: true
+    networks:
+      - gossip_network
+
+  gossip_service3:
+    image: xdp-gossip:latest
+    command: ["xdp-gossip", "--name", "server3" ,"--link", "eth0", "--proto", "UDP"]
+    ports:
+      - "8083:8080/udp"
+      - "8003:8000/tcp"
+    privileged: true
+    networks:
+      - gossip_network
+
+  gossip_service4:
+    image: xdp-gossip:latest
+    command: ["xdp-gossip", "--name", "server4" ,"--link", "eth0", "--proto", "UDP"]
+    ports:
+      - "8084:8080/udp"
+      - "8004:8000/tcp"
+    privileged: true
+    networks:
+      - gossip_network
+
+networks:
+  gossip_network:
+    driver: bridge
