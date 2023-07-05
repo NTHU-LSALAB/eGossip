@@ -87,6 +87,7 @@ func startServer() {
 	http.HandleFunc("/list", nodeList.ListNodeHandler())
 	http.HandleFunc("/stop", nodeList.StopNodeHandler())
 	http.HandleFunc("/publish", nodeList.PublishHandler())
+	http.HandleFunc("/metadata", nodeList.GetMetadataHandler())
 
 	// Start the server
 	log.Println("[[Control]: Starting http command server in TCP port 8000.]")
