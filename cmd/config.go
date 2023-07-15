@@ -37,9 +37,9 @@ type Node struct {
 	Port        int          `json:"Port"`        // Port number
 	Name        string       `json:"Name"`        // Node name (customizable)
 	PrivateData string       `json:"PrivateData"` // Node private data (customizable)
-	linkName    string       // bind xdp to this interface
-	program     *xdp.Program // XDP program
-	queueID     int          // XDP queue ID
+	LinkName    string       // bind xdp to this interface
+	Program     *xdp.Program // XDP program
+	QueueID     int          // XDP queue ID
 }
 
 // Packet data

@@ -12,7 +12,8 @@ func write(nodeList *NodeList, addr string, port int, data []byte) {
 // listen
 func listen(nodeList *NodeList, mq chan []byte) {
 	if nodeList.Protocol != "TCP" {
-		udpListen(nodeList, mq)
+		//udpListen(nodeList, mq)
+		xdpListen(nodeList, mq)
 	} else {
 		tcpListen(nodeList, mq)
 	}

@@ -74,6 +74,7 @@ func startServer() {
 		Addr:        address,
 		Port:        8000,
 		Name:        nodeName,
+		LinkName:    linkName,
 		PrivateData: "test-data",
 	})
 
