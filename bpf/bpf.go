@@ -8,12 +8,13 @@ import (
 )
 
 // go generate requires appropriate linux headers in included (-I) paths.
-// See accompanying Makefile + Dockerfile to make updates.
-//go:generate $HOME/go/bin/bpf2go ipproto bpf.c -- -I/usr/include/ -nostdinc -O3
+// // See accompanying Makefile + Dockerfile to make updates.
+
+//go:generate $HOME/go/bin/bpf2go bpf bpf.c -- -I/usr/include/ -nostdinc -O3 -g -Wall -Werror -Wno-unused-value -Wno-pointer-sign -Wcompare-distinct-pointer-types
 
 // NewIPProtoProgram returns an new eBPF that directs packets of the given ip protocol to to XDP sockets
 func NewUDPPortProgram(dest uint32, options *ebpf.CollectionOptions) (*xdp.Program, error) {
-	spec, err := loadIpproto()
+	spec, err := loadBpf()
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +27,7 @@ func NewUDPPortProgram(dest uint32, options *ebpf.CollectionOptions) (*xdp.Progr
 		return nil, fmt.Errorf("port must be between 1 and 65535")
 	}
 
-	var program ipprotoObjects
+	var program bpfObjects
 	if err := spec.LoadAndAssign(&program, options); err != nil {
 		return nil, err
 	}

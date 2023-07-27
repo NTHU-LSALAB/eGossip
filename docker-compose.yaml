@@ -2,7 +2,7 @@ version: '3'
 services:
   gossip_service1:
     image: xdp-gossip:latest
-    command: ["xdp-gossip", "--name", "server1" ,"--link", "eth0", "--proto", "UDP"]
+    command: ["xdp-gossip", "--name", "server1" ,"--link", "eth0", "--proto", "XDP"]
     ports:
       - "8081:8080/udp"
       - "8001:8000/tcp"
@@ -10,15 +10,15 @@ services:
     networks:
       - gossip_network
 
-  # gossip_service2:
-  #   image: xdp-gossip:latest
-  #   command: ["xdp-gossip", "--name", "server2" ,"--link", "eth0", "--proto", "UDP"]
-  #   ports:
-  #     - "8082:8080/udp"
-  #     - "8002:8000/tcp"
-  #   privileged: true
-  #   networks:
-  #     - gossip_network
+  gossip_service2:
+    image: xdp-gossip:latest
+    command: ["xdp-gossip", "--name", "server2" ,"--link", "eth0", "--proto", "XDP"]
+    ports:
+      - "8082:8080/udp"
+      - "8002:8000/tcp"
+    privileged: true
+    networks:
+      - gossip_network
 
   # gossip_service3:
   #   image: xdp-gossip:latest

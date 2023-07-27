@@ -70,13 +70,20 @@ int xdp_sock_prog(struct xdp_md *ctx)
 		if ((void *)udp + sizeof(*udp) > data_end)
 			goto out;
 
-		if (udp->dest == bpf_htons(PORT))
+		if (udp->dest == bpf_htons(PORT)) {
 			return bpf_redirect_map(&xsks_map, index, 0);
+		}
 	}
 
 out:
 	return XDP_PASS;
 }
 
+SEC("fastbroadcast")
+int fastboradcast_prog(struct __sk_buff *skb)
+{
+	return TC_ACT_OK;
+}
+
 // Basic license just for compiling the object code
-char __license[] SEC("license") = "LGPL-2.1 or BSD-2-Clause";
+char __license[] SEC("license") = "GPL";

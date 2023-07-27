@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -78,11 +79,15 @@ func consume(nodeList *NodeList, mq chan []byte) {
 				// Update local node's stored metadata
 				nodeList.metadata.Store(p.Metadata)
 				// Skip, do not broadcast, do not respond to initiator
+
+				nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
+
 				continue
 			}
 			// If the packet's metadata version is older, this means the initiator's metadata version needs to be updated
 			if p.Metadata.Update < nodeList.metadata.Load().(metadata).Update {
 				// If it is a swap request from the initiator
+				fmt.Println(p.IsSwap)
 				if p.IsSwap == 1 {
 					// Respond to the initiator, send the latest metadata to the initiator, complete the swap process
 					swapResponse(nodeList, p.Node)
@@ -102,6 +107,7 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		if p.IsUpdate && p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
 			// Update local node's stored metadata
 			nodeList.metadata.Store(p.Metadata)
+			nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
 		}
 
 		// Broadcast this node's information

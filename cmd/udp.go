@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+	//"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/asavie/xdp"
 	ebpf "github.com/kerwenwwer/xdp-gossip/bpf"
@@ -66,6 +67,7 @@ func udpListen(nodeList *NodeList, mq chan []byte) {
 		bs := make([]byte, nodeList.Size)
 
 		// listen for UDP packets to the port
+		start := time.Now()
 		n, _, err := conn.ReadFromUDP(bs)
 		if err != nil {
 			nodeList.println("[Error]:", err)
@@ -82,6 +84,9 @@ func udpListen(nodeList *NodeList, mq chan []byte) {
 
 		// put data in to a message queue
 		mq <- b
+
+		elapsed := time.Since(start)
+		nodeList.println("Latency for packet: ", elapsed)
 	}
 }
 
@@ -94,7 +99,7 @@ func udpprocess(mq chan []byte) {
 		// PAYLOAD
 		_ = pktData
 		count++
-		log.Println(count)
+		//log.Println(count)
 		mq <- pktData[42:]
 		// log.Print(
 		// 	"SrcIP: ", net.IP(pktData[26:30]).String(), ", SrcPort: ", int(pktData[34])*256+int(pktData[35]),
@@ -205,7 +210,11 @@ func xdpListen(nodeList *NodeList, mq chan []byte) {
 			// in-place replacing the destination MAC address with
 			// broadcast address.
 			for i := 0; i < len(rxDescs); i++ {
+				receivedTime := time.Now() // Time of reception
 				pktData := xsk.GetFrame(rxDescs[i])
+				processedTime := time.Now() // Time of processing
+				latency := processedTime.Sub(receivedTime)
+				nodeList.println("Latency for packet: ", latency)
 				limits <- pktData
 			}
 		}
