@@ -1,37 +1,100 @@
-package xdp_sock
+package bpf
 
 import (
+	"errors"
 	"fmt"
+	"os"
 
-	"github.com/asavie/xdp"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/ebpf"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
-// go generate requires appropriate linux headers in included (-I) paths.
-// // See accompanying Makefile + Dockerfile to make updates.
+const (
+	MAX_TARGETS = 64
+)
 
-//go:generate $HOME/go/bin/bpf2go bpf bpf.c -- -I/usr/include/ -nostdinc -O3 -g -Wall -Werror -Wno-unused-value -Wno-pointer-sign -Wcompare-distinct-pointer-types
+type TargetInfoInterface interface {
+	GetIp() uint32
+	GetPort() uint16
+	GetMac() [6]int8
+}
 
-// NewIPProtoProgram returns an new eBPF that directs packets of the given ip protocol to to XDP sockets
-func NewUDPPortProgram(dest uint32, options *ebpf.CollectionOptions) (*xdp.Program, error) {
-	spec, err := loadBpf()
-	if err != nil {
-		return nil, err
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -cflags "-O2 -Wall" bpf ./bpf.c
+
+func replaceQdisc(link netlink.Link) error {
+	attrs := netlink.QdiscAttrs{
+		LinkIndex: link.Attrs().Index,
+		Handle:    netlink.MakeHandle(0xffff, 0),
+		Parent:    netlink.HANDLE_CLSACT,
 	}
 
-	if dest > 0 && dest <= 65535 {
-		if err := spec.RewriteConstants(map[string]interface{}{"PORT": uint16(dest)}); err != nil {
-			return nil, err
+	qdisc := &netlink.GenericQdisc{
+		QdiscAttrs: attrs,
+		QdiscType:  "clsact",
+	}
+
+	return netlink.QdiscReplace(qdisc)
+}
+
+func LoadObjects() (*bpfObjects, error) {
+	var objs bpfObjects
+	if err := loadBpfObjects(&objs, nil); err != nil {
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) {
+			fmt.Fprintf(os.Stderr, "Verifier errors:\n%s\n", ve.Error())
 		}
-	} else {
-		return nil, fmt.Errorf("port must be between 1 and 65535")
-	}
-
-	var program bpfObjects
-	if err := spec.LoadAndAssign(&program, options); err != nil {
 		return nil, err
 	}
 
-	p := &xdp.Program{Program: program.XdpSockProg, Queues: program.QidconfMap, Sockets: program.XsksMap}
-	return p, nil
+	return &objs, nil
+}
+
+func AttachTC(objs *bpfObjects, link netlink.Link) error {
+	if err := replaceQdisc(link); err != nil {
+		return err
+	}
+
+	filter := &netlink.BpfFilter{
+		FilterAttrs: netlink.FilterAttrs{
+			LinkIndex: link.Attrs().Index,
+			Parent:    netlink.HANDLE_MIN_EGRESS,
+			Handle:    1,
+			Protocol:  unix.ETH_P_ALL,
+			Priority:  option.Config.TCFilterPriority,
+		},
+		Fd:           objs.Fastbroadcast.FD(),
+		Name:         fmt.Sprintf("%s-%s", "fastboradcast_prog", link.Attrs().Name),
+		DirectAction: true,
+	}
+
+	if err := netlink.FilterReplace(filter); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func PushtoMap(objs *bpfObjects, key uint32, targets []TargetInfoInterface) error {
+	mapRef := objs.TargetsMap
+	var value bpfTargets
+
+	targetCount := len(targets)
+	if targetCount > MAX_TARGETS {
+		return fmt.Errorf("too many targets: %d", value.MaxCount)
+	}
+
+	value.MaxCount = uint16('a' + targetCount - 1)
+	fmt.Println("MaxCount", value.MaxCount-'a')
+	for i := 0; i < int(len(targets)); i++ {
+		value.TargetList[i].Ip = targets[i].GetIp()
+		value.TargetList[i].Port = targets[i].GetPort()
+		value.TargetList[i].Mac = targets[i].GetMac()
+	}
+
+	if err := mapRef.Put(key, value); err != nil {
+		return err
+	}
+	return nil
 }
