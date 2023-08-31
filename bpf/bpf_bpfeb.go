@@ -54,15 +54,14 @@ type bpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfProgramSpecs struct {
-	XdpSockProg *ebpf.ProgramSpec `ebpf:"xdp_sock_prog"`
+	FastboradcastProg *ebpf.ProgramSpec `ebpf:"fastboradcast_prog"`
 }
 
 // bpfMapSpecs contains maps before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type bpfMapSpecs struct {
-	QidconfMap *ebpf.MapSpec `ebpf:"qidconf_map"`
-	XsksMap    *ebpf.MapSpec `ebpf:"xsks_map"`
+	MapConfigure *ebpf.MapSpec `ebpf:"map_configure"`
 }
 
 // bpfObjects contains all objects after they have been loaded into the kernel.
@@ -84,14 +83,12 @@ func (o *bpfObjects) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfMaps struct {
-	QidconfMap *ebpf.Map `ebpf:"qidconf_map"`
-	XsksMap    *ebpf.Map `ebpf:"xsks_map"`
+	MapConfigure *ebpf.Map `ebpf:"map_configure"`
 }
 
 func (m *bpfMaps) Close() error {
 	return _BpfClose(
-		m.QidconfMap,
-		m.XsksMap,
+		m.MapConfigure,
 	)
 }
 
@@ -99,12 +96,12 @@ func (m *bpfMaps) Close() error {
 //
 // It can be passed to loadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type bpfPrograms struct {
-	XdpSockProg *ebpf.Program `ebpf:"xdp_sock_prog"`
+	FastboradcastProg *ebpf.Program `ebpf:"fastboradcast_prog"`
 }
 
 func (p *bpfPrograms) Close() error {
 	return _BpfClose(
-		p.XdpSockProg,
+		p.FastboradcastProg,
 	)
 }
 

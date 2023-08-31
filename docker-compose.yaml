@@ -7,8 +7,13 @@ services:
       - "8081:8080/udp"
       - "8001:8000/tcp"
     privileged: true
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
     networks:
-      - gossip_network
+      gossip_network:
+        ipv4_address: 10.20.0.11
+
+      
 
   gossip_service2:
     image: xdp-gossip:latest
@@ -17,8 +22,12 @@ services:
       - "8082:8080/udp"
       - "8002:8000/tcp"
     privileged: true
+    volumes:
+      - /sys/kernel/debug:/sys/kernel/debug:ro
     networks:
-      - gossip_network
+      gossip_network:
+        ipv4_address: 10.20.0.12
+
 
   # gossip_service3:
   #   image: xdp-gossip:latest
@@ -43,3 +52,7 @@ services:
 networks:
   gossip_network:
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.20.0.0/16

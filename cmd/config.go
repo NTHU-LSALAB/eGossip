@@ -39,25 +39,31 @@ type Node struct {
 	PrivateData string       `json:"PrivateData"` // Node private data (customizable)
 	LinkName    string       // bind xdp to this interface
 	Program     *xdp.Program // XDP program
+	Xsk         *xdp.Socket  // XDP socket
 	QueueID     int          // XDP queue ID
 }
 
 // Packet data
 type packet struct {
+	IsUpdate    bool  // Whether the packet is a metadata update packet (true: yes, false: no)
+	IsSwap      uint8 // Whether the packet is a metadata exchange packet (0: no, 1: initiator sends an exchange request to the recipient, 2: recipient responds to the initiator, data exchange completed)
+	IsBroadcast uint8 // Whether the packet is a metadata broadcast packet (0: no, 1: yes) using unit8 is for ebpf program check packet type.
+
 	// Node information
 	Node     Node            // Node information in the heartbeat packet
 	Infected map[string]bool // List of nodes already infected by this packet, the key is a string concatenated by Addr:Port, and the value determines whether the node has been infected (true: yes, false: no)
 
 	// Metadata information
-	Metadata metadata // New metadata information, if the packet is a metadata update packet (isUpdate=true), then replace the original cluster metadata with newData
-	IsUpdate bool     // Whether the packet is a metadata update packet (true: yes, false: no)
-	IsSwap   uint8    // Whether the packet is a metadata exchange packet (0: no, 1: initiator sends an exchange request to the recipient, 2: recipient responds to the initiator, data exchange completed)
-
-	SecretKey string // Cluster key, if it doesn't match, reject processing this packet
+	Metadata  metadata // New metadata information, if the packet is a metadata update packet (isUpdate=true), then replace the original cluster metadata with newData
+	SecretKey string   // Cluster key, if it doesn't match, reject processing this packet
 }
 
 // Metadata information
 type metadata struct {
 	Data   []byte // Metadata content
 	Update int64  // Metadata version (update timestamp)
+}
+
+type nodeIPList struct {
+	IPList []string `json:"IPList"`
 }

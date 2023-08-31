@@ -15,7 +15,8 @@ func listen(nodeList *NodeList, mq chan []byte) {
 		tcpListen(nodeList, mq)
 	} else if nodeList.Protocol == "UDP" {
 		udpListen(nodeList, mq)
-	} else {
-		xdpListen(nodeList, mq)
+	} else if nodeList.Protocol == "XDP" {
+		xdpInit(nodeList)
+		udpListen(nodeList, mq)
 	}
 }

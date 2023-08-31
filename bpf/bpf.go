@@ -2,6 +2,8 @@ package xdp_sock
 
 import (
 	"fmt"
+	"log"
+	"net"
 
 	"github.com/asavie/xdp"
 	"github.com/cilium/ebpf"
@@ -12,7 +14,71 @@ import (
 
 //go:generate $HOME/go/bin/bpf2go bpf bpf.c -- -I/usr/include/ -nostdinc -O3 -g -Wall -Werror -Wno-unused-value -Wno-pointer-sign -Wcompare-distinct-pointer-types
 
-// NewIPProtoProgram returns an new eBPF that directs packets of the given ip protocol to to XDP sockets
+type Program uint8
+
+const (
+	ProgramNone Program = iota
+	XdpSockProg
+	FastboradcastProg
+)
+
+// Load BPF object
+func LoadBpfOBj() (*bpfObjects, error) {
+	var objs bpfObjects
+	if err := loadBpfObjects(&objs, nil); err != nil {
+		return nil, err
+	}
+
+	return &objs, nil
+}
+
+// // Attach BPF object
+func Attach(obj *bpfObjects, prog Program, linkName string) (func(), xdp.Program, error) {
+
+	switch prog {
+	case XdpSockProg:
+		return attachXdpSockPrgo(obj.XdpSockProg, Ifindex)
+	case FastboradcastProg:
+		return attachFastboradcastProg(obj.FastboradcastProg, Ifindex)
+	}
+
+	return nil, nil, fmt.Errorf("unknow program %d\n", prog)
+}
+
+func attachXdpSockPrgo(p *ebpf.Program, Ifindex int) (func(), xdp.Program, error) {
+	xdp_prog := &xdp.Program{Program: p., Queues: p.QidconfMap, Sockets: p.XsksMap}
+
+	return func() {
+		if err != l.Close(); err != nil {
+			log.Printf("error: failed to close xdp socket: %v\n", err)
+		}
+	}, xdp_prog, nil
+}
+
+func attachFastboradcastProg(p *ebpf.Program, Ifindex int) (func(), xdp.Program, error) {
+	return func() {
+		if err != l.Close(); err != nil {
+			log.Printf("error: failed to close fastboradcast socket: %v\n", err)
+		}
+	}, nil, nil
+}
+
+func FindIfindex(linkname string) (int, error) {
+	var Ifindex int
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		fmt.Printf("error: failed to fetch the list of network interfaces on the system: %v\n", err)
+		return -1, err
+	}
+	for _, iface := range interfaces {
+		if iface.Name == linkname {
+			Ifindex = iface.Index
+			break
+		}
+	}
+	return Ifindex, nil
+}
+
 func NewUDPPortProgram(dest uint32, options *ebpf.CollectionOptions) (*xdp.Program, error) {
 	spec, err := loadBpf()
 	if err != nil {

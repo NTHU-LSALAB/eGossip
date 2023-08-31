@@ -152,6 +152,9 @@ func broadcast(nodeList *NodeList, p packet) {
 		i++
 	}
 
+	// Set the broadcast flag
+	p.IsBroadcast = 1
+
 	// Broadcast the "infection" data to these uninfected nodes
 	for _, v := range targetNodes {
 		bs, err := json.Marshal(p)
