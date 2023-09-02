@@ -140,7 +140,13 @@ func (nodeList *NodeList) Set(node Node) {
 		node.Addr = "0.0.0.0"
 	}
 
+	targets := BroadcastTargets{
+		Ip:   IpToUint32(node.Addr),
+		Port: uint16(node.Port),
+	}
+
 	nodeList.nodes.Store(node, time.Now().Unix())
+	nodeList.broadcastTarget.Store(targets, time.Now().Unix())
 }
 
 // Get retrieves the local node list

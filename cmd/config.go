@@ -1,15 +1,17 @@
 package cmd
 
 import (
+	"encoding/binary"
+	"log"
+	"net"
 	"sync"
 	"sync/atomic"
-
-	"github.com/asavie/xdp"
 )
 
 // NodeList is a list of nodes
 type NodeList struct {
-	nodes sync.Map // Collection of nodes (key is Node structure, value is the most recent second-level timestamp of node update)
+	nodes           sync.Map // Collection of nodes (key is Node structure, value is the most recent second-level timestamp of node update)
+	broadcastTarget sync.Map // Broadcast target
 
 	Amount  int   // Number of nodes to send synchronization information to at one time
 	Cycle   int64 // Synchronization cycle (how many seconds to send list synchronization information to other nodes)
@@ -33,13 +35,29 @@ type NodeList struct {
 
 // Node represents a node
 type Node struct {
-	Addr        string       `json:"Addr"`        // Node IP address (fill in public IP in public network environment)
-	Port        int          `json:"Port"`        // Port number
-	Name        string       `json:"Name"`        // Node name (customizable)
-	PrivateData string       `json:"PrivateData"` // Node private data (customizable)
-	LinkName    string       // bind xdp to this interface
-	Program     *xdp.Program // XDP program
-	QueueID     int          // XDP queue ID
+	Addr        string `json:"Addr"`        // Node IP address (fill in public IP in public network environment)
+	Port        int    `json:"Port"`        // Port number
+	Name        string `json:"Name"`        // Node name (customizable)
+	PrivateData string `json:"PrivateData"` // Node private data (customizable)
+	LinkName    string // bind xdp to this interface
+}
+
+type BroadcastTargets struct {
+	Ip   uint32
+	Port uint16
+	Mac  [6]int8
+}
+
+func (t BroadcastTargets) GetIp() uint32 {
+	return t.Ip
+}
+
+func (t BroadcastTargets) GetPort() uint16 {
+	return t.Port
+}
+
+func (t BroadcastTargets) GetMac() [6]int8 {
+	return t.Mac
 }
 
 // Packet data
@@ -60,4 +78,14 @@ type packet struct {
 type metadata struct {
 	Data   []byte // Metadata content
 	Update int64  // Metadata version (update timestamp)
+}
+
+// IpToUint32 converts IP to uint32
+func IpToUint32(ipStr string) uint32 {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		log.Fatalf("Failed to parse IP: %s", ipStr)
+	}
+	ip = ip.To4()
+	return binary.LittleEndian.Uint32(ip)
 }
