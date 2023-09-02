@@ -1,5 +1,7 @@
 package cmd
 
+import "fmt"
+
 // write
 func write(nodeList *NodeList, addr string, port int, data []byte) {
 	if nodeList.Protocol != "TCP" {
@@ -16,6 +18,6 @@ func listen(nodeList *NodeList, mq chan []byte) {
 	} else if nodeList.Protocol == "UDP" {
 		udpListen(nodeList, mq)
 	} else {
-		xdpListen(nodeList, mq)
+		fmt.Println("Protocol not supported")
 	}
 }
