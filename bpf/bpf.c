@@ -50,9 +50,6 @@ struct
 	__uint(max_entries, 1);
 } targets_map SEC(".maps");
 
-
-
-
 // static inline int message_type_checker(char *payload, void *data_end)
 // {
 //     return 0;
