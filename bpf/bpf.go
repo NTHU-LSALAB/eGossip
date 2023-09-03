@@ -21,6 +21,10 @@ type TargetInfoInterface interface {
 	GetMac() [6]int8
 }
 
+type BpfObjects struct {
+	objs *bpfObjects
+}
+
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -cflags "-O2 -Wall" bpf ./bpf.c
 
 func replaceQdisc(link netlink.Link) error {
@@ -38,7 +42,7 @@ func replaceQdisc(link netlink.Link) error {
 	return netlink.QdiscReplace(qdisc)
 }
 
-func LoadObjects() (*bpfObjects, error) {
+func LoadObjects() (*BpfObjects, error) {
 	var objs bpfObjects
 	if err := loadBpfObjects(&objs, nil); err != nil {
 		var ve *ebpf.VerifierError
@@ -48,10 +52,10 @@ func LoadObjects() (*bpfObjects, error) {
 		return nil, err
 	}
 
-	return &objs, nil
+	return &BpfObjects{&objs}, nil
 }
 
-func AttachTC(objs *bpfObjects, link netlink.Link) error {
+func AttachTC(BpfObjs *BpfObjects, link netlink.Link) error {
 	if err := replaceQdisc(link); err != nil {
 		return err
 	}
@@ -64,7 +68,7 @@ func AttachTC(objs *bpfObjects, link netlink.Link) error {
 			Protocol:  unix.ETH_P_ALL,
 			Priority:  option.Config.TCFilterPriority,
 		},
-		Fd:           objs.Fastbroadcast.FD(),
+		Fd:           BpfObjs.objs.Fastbroadcast.FD(),
 		Name:         fmt.Sprintf("%s-%s", "fastboradcast_prog", link.Attrs().Name),
 		DirectAction: true,
 	}
@@ -76,8 +80,8 @@ func AttachTC(objs *bpfObjects, link netlink.Link) error {
 	return nil
 }
 
-func PushtoMap(objs *bpfObjects, key uint32, targets []TargetInfoInterface) error {
-	mapRef := objs.TargetsMap
+func PushtoMap(BpfObjs *BpfObjects, key uint32, targets []TargetInfoInterface) error {
+	mapRef := BpfObjs.objs.TargetsMap
 	var value bpfTargets
 
 	targetCount := len(targets)
