@@ -3,6 +3,9 @@ package cmd
 import (
 	"strconv"
 	"time"
+
+	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
+	"github.com/vishvananda/netlink"
 )
 
 // New initializes the local node list
@@ -64,6 +67,28 @@ func (nodeList *NodeList) New(localNode Node) {
 		Update: 0,          // Metadata update timestamp
 	}
 	nodeList.metadata.Store(md) // Initialize metadata information
+
+	// Load bpf objects
+	obj, err := bpf.LoadObjects()
+	if err != nil {
+		nodeList.println("[Error]:", "Failed to load objects: %v", err)
+	}
+
+	// Get netlink by name
+	link, err := netlink.LinkByName(localNode.LinkName)
+	if err != nil {
+		nodeList.println("[Error]:", "Failed to get link by name %v", err)
+	}
+
+	// Attach Tc program
+	if err := bpf.AttachTC(obj, link); err != nil {
+		nodeList.println("[Error]:", "Failed to attach TC: %v", err)
+	}
+
+	// Store bpf objects to local node
+	nodeList.localNode.Program = obj
+
+	nodeList.println("[Info]:", "TC attached")
 }
 
 // Join joins the cluster
