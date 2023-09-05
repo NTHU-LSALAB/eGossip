@@ -1,4 +1,4 @@
-all: bpf/*.o build docker-build
+all: bpf/*.o build docker-up
 
 bpf/*.o: bpf/*.c
 	go generate ./bpf/..
@@ -10,3 +10,7 @@ build: bpf/*.o
 .PHONY: docker-build
 docker-build:
 	docker build -t xdp-gossip .
+
+.PHONY: docker-up
+docker-up:
+	docker-compose up --build
