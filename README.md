@@ -1,8 +1,8 @@
 # XDP Gossip
 
-## A Gossip protocol toolkit based on XDP
+## A Gossip protocol toolkit based on eBPF feature
 
-### Basic Gossip API is from [PekoNode](https://github.com/dpwgc/pekonode/tree/master)
+Basic Gossip API is from [PekoNode](https://github.com/dpwgc/pekonode/tree/master)
 
 ### Implement function
 ##### Cluster node list sharing
