@@ -4,6 +4,16 @@
 
 Basic Gossip API is from [PekoNode](https://github.com/dpwgc/pekonode/tree/master)
 
+## Build and Test
+Using make command it will build and run automatically.
+
+``` make ``` 
+
+If you only want to restart a docker compose server
+
+``` docker-compose up ``` 
+
+
 ### Implement function
 ##### Cluster node list sharing
 * Synchronize the list of cluster nodes through rumor propagation `NodeList` (Each node will eventually store a complete list of nodes that can be used in service registration discovery scenarios)
