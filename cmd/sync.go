@@ -210,8 +210,6 @@ func fastBroadcast(nodeList *NodeList, p packet) {
 			nodeList.println("[Error]:", err)
 		}
 		write(nodeList, v.Addr, v.Port, bs)
-	} else {
-		nodeList.println("[Error]:", "No target node")
 	}
 }
 

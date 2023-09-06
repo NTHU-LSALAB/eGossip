@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -175,11 +174,11 @@ func (nodeList *NodeList) Set(node Node) {
 	nodeList.nodes.Store(node, time.Now().Unix())
 	nodeList.broadcastTarget.Store(targets, 1)
 
-	f := func(key, value interface{}) bool {
-		fmt.Printf("%v: %v\n", key, value)
-		return true
-	}
-	nodeList.broadcastTarget.Range(f)
+	// f := func(key, value interface{}) bool {
+	// 	fmt.Printf("%v: %v\n", key, value)
+	// 	return true
+	// }
+	// nodeList.broadcastTarget.Range(f)
 
 	// Update loacl map
 	bpf.PushtoMap(nodeList.localNode.Program, IpToUint32(node.Addr), nodeList.broadcastTarget)

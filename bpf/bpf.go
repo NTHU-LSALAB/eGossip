@@ -96,7 +96,6 @@ func PushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {
 	}
 
 	value.MaxCount = uint16('0' + targetCount - 1)
-	fmt.Println("MaxCount", value.MaxCount-'0')
 
 	i := 0
 	targets.Range(func(key, val interface{}) bool {
