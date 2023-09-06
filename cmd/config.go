@@ -65,14 +65,16 @@ func (t BroadcastTargets) GetMac() [6]int8 {
 
 // Packet data
 type packet struct {
+	IsBroadcast uint8  // Whether the packet is a broadcast packet (true: yes, false: no)
+	Count       uint16 // Broadcast packet count (0-64)
+	IsUpdate    bool   // Whether the packet is a metadata update packet (true: yes, false: no)
+	IsSwap      uint8  // Whether the packet is a metadata exchange packet (0: no, 1: initiator sends an exchange request to the recipient, 2: recipient responds to the initiator, data exchange completed)
 	// Node information
 	Node     Node            // Node information in the heartbeat packet
 	Infected map[string]bool // List of nodes already infected by this packet, the key is a string concatenated by Addr:Port, and the value determines whether the node has been infected (true: yes, false: no)
 
 	// Metadata information
 	Metadata metadata // New metadata information, if the packet is a metadata update packet (isUpdate=true), then replace the original cluster metadata with newData
-	IsUpdate bool     // Whether the packet is a metadata update packet (true: yes, false: no)
-	IsSwap   uint8    // Whether the packet is a metadata exchange packet (0: no, 1: initiator sends an exchange request to the recipient, 2: recipient responds to the initiator, data exchange completed)
 
 	SecretKey string // Cluster key, if it doesn't match, reject processing this packet
 }

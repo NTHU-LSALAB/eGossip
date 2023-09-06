@@ -152,6 +152,9 @@ func broadcast(nodeList *NodeList, p packet) {
 		i++
 	}
 
+	p.IsBroadcast = 1
+	p.Count = 'a'
+
 	// Broadcast the "infection" data to these uninfected nodes
 	for _, v := range targetNodes {
 		bs, err := json.Marshal(p)
@@ -161,6 +164,10 @@ func broadcast(nodeList *NodeList, p packet) {
 		// Send the packet
 		write(nodeList, v.Addr, v.Port, bs)
 	}
+}
+
+func fastBroadcast(nodeList *NodeList, p packet) {
+
 }
 
 // Initiate a data exchange request between two nodes

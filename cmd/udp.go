@@ -4,7 +4,6 @@ import (
 	"fmt"
 	//"log"
 	"net"
-	"time"
 )
 
 var limits = make(chan []byte)
@@ -61,7 +60,7 @@ func udpListen(nodeList *NodeList, mq chan []byte) {
 		bs := make([]byte, nodeList.Size)
 
 		// listen for UDP packets to the port
-		start := time.Now()
+		//start := time.Now()
 		n, _, err := conn.ReadFromUDP(bs)
 		if err != nil {
 			nodeList.println("[Error]:", err)
@@ -79,8 +78,8 @@ func udpListen(nodeList *NodeList, mq chan []byte) {
 		// put data in to a message queue
 		mq <- b
 
-		elapsed := time.Since(start)
-		nodeList.println("Latency for packet: ", elapsed)
+		//elapsed := time.Since(start)
+		//nodeList.println("Latency for packet: ", elapsed)
 	}
 }
 

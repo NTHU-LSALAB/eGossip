@@ -170,8 +170,11 @@ func (nodeList *NodeList) Set(node Node) {
 		Port: uint16(node.Port),
 	}
 
+	// Store node information
 	nodeList.nodes.Store(node, time.Now().Unix())
 	nodeList.broadcastTarget.Store(targets, time.Now().Unix())
+	// Update loacl map
+	bpf.PushtoMap(nodeList.localNode.Program, IpToUint32(node.Addr), nodeList.broadcastTarget)
 }
 
 // Get retrieves the local node list
