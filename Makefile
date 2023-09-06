@@ -1,7 +1,8 @@
 all: bpf/*.o build docker-up
 
+.PHONY: bpf/*.o 
 bpf/*.o: bpf/*.c
-	go generate ./bpf/..
+	go generate ./bpf/
 
 .PHONY: build
 build: bpf/*.o
