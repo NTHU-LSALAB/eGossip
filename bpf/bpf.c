@@ -13,6 +13,7 @@
 #include <string.h>
 
 #define DEBUG
+#define DEBUG_1
 
 #define MAX_TARGETS 64
 #define MAX_SIZE 99
@@ -50,18 +51,13 @@ struct
 	__uint(max_entries, 1);
 } targets_map SEC(".maps");
 
-// static inline int message_type_checker(char *payload, void *data_end)
-// {
-//     return 0;
-// }
-
 static inline __u16 compute_ip_checksum(struct iphdr *ip)
 {
 	__u32 csum = 0;
 	__u16 *next_ip_u16 = (__u16 *)ip;
 
 	ip->check = 0;
-	// #pragma clang loop unroll(full)
+//#pragma clang loop unroll(full)
 	for (int i = 0; i < (sizeof(*ip) >> 1); i++)
 	{
 		csum += *next_ip_u16++;
@@ -70,12 +66,22 @@ static inline __u16 compute_ip_checksum(struct iphdr *ip)
 	return ~((csum & 0xffff) + (csum >> 16));
 }
 
+int is_broadcast_packet(const char *payload)
+{
+	// Search for the key in the payload
+	if ( payload[0] != '{' ){
+		return 0;
+	} else {
+		if ( payload[2] == 'I' && payload[8] == 'd' && payload[14] == ':' && payload[15] == '1') {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 SEC("classifier")
 int fastbroadcast(struct __sk_buff *skb)
 {
-#ifdef DEBUG
-	bpf_printk("[fastbroad_prog] ingress packet received\n");
-#endif
 	const int l3_off = ETH_HLEN;					  // IP header offset
 	const int l4_off = l3_off + sizeof(struct iphdr); // L4 header offset
 
@@ -112,7 +118,7 @@ int fastbroadcast(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	if (payload + 5 >= data_end)
+	if (payload + 30 >= data_end)
 	{
 #ifdef DEBUG
 		bpf_printk("[fastbroad_prog] type_str + 5 >= data_end\n");
@@ -128,9 +134,12 @@ int fastbroadcast(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	if (payload[1] != 'B' && payload[2] != 'A')
+	if (is_broadcast_packet(payload) == 0)
 	{
-		// Not a broadcast packet
+		// Valid packet but not broadcast packet
+#ifdef DEBUG_1
+		bpf_printk("[fastbroad_prog] is not a broadcast packet\n");
+#endif
 		return TC_ACT_OK;
 	}
 
@@ -143,21 +152,13 @@ int fastbroadcast(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	// #ifdef DEBUG
-	//     bpf_printk("[fastbroad_prog] ingress packet accepted, magic bit: %c\n Dump tgt_list data: \n max_count: %d \nIP[0]:%d Port[0]:%d MAX[0]:%s\n",
-	//                     type_str[0],
-	//                     tgt_list->max_count,
-	//                     tgt_list->target_list[0].ip,
-	//                     tgt_list->target_list[0].port,
-	//                     tgt_list->target_list[0].mac);
-	// #endif
-
 	char nxt;
-	int curr = payload[0];
+	u16 curr = payload[25];
+	bpf_printk("count: %d\n", payload[25]);
 	if (curr < tgt_list->max_count)
 	{
-		nxt = payload[0] + 1;
-		payload[0] = nxt;
+		nxt = payload[25] + 1;
+		payload[25] = nxt;
 #ifdef DEBUG
 		__u16 udp_total_len = ntohs(udp->len);
 		__u16 udp_payload_len = udp_total_len - sizeof(struct udphdr);
@@ -184,7 +185,7 @@ int fastbroadcast(struct __sk_buff *skb)
 	if (payload + sizeof(__u64) > data_end)
 		return TC_ACT_OK;
 
-	if (payload + 5 >= data_end)
+	if (payload + 30 >= data_end)
 	{
 #ifdef DEBUG
 		bpf_printk("[fastbroad_prog] TC_ACT_SHOT (type_str + 5 >= data_end)\n");
@@ -203,7 +204,7 @@ int fastbroadcast(struct __sk_buff *skb)
 	int num = tgt_list->max_count - curr;
 
 #ifdef DEBUG
-	bpf_printk("[fastbroad_prog] egress packet: num:%d, typ_str[0]: %d, %c, max_count:%d\n", num, payload[0], payload[0], tgt_list->max_count);
+	bpf_printk("[fastbroad_prog] egress packet: num:%d, payload[25]: %d, %c, max_count:%d\n", num, payload[25], payload[25], tgt_list->max_count);
 #endif
 
 	if (num < 0 || num >= MAX_TARGETS)

@@ -30,7 +30,8 @@ func task(nodeList *NodeList) {
 		}
 
 		// Broadcast the heartbeat data packet
-		broadcast(nodeList, p)
+		//broadcast(nodeList, p)
+		fastBroadcast(nodeList, p)
 
 		// Initiate a data exchange request with a node in the cluster
 		swapRequest(nodeList)
@@ -111,7 +112,8 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		}
 
 		// Broadcast this node's information
-		broadcast(nodeList, p)
+		//broadcast(nodeList, p)
+		fastBroadcast(nodeList, p)
 	}
 }
 
@@ -152,9 +154,6 @@ func broadcast(nodeList *NodeList, p packet) {
 		i++
 	}
 
-	p.IsBroadcast = 1
-	p.Count = 'a'
-
 	// Broadcast the "infection" data to these uninfected nodes
 	for _, v := range targetNodes {
 		bs, err := json.Marshal(p)
@@ -168,6 +167,52 @@ func broadcast(nodeList *NodeList, p packet) {
 
 func fastBroadcast(nodeList *NodeList, p packet) {
 
+	p.IsBroadcast = 1
+
+	// Get all unexpired nodes
+	nodes := nodeList.Get()
+
+	var targetNodes []Node
+
+	// Select some uninfected nodes
+	i := 0
+	for _, v := range nodes {
+
+		// If the maximum number of pushes (Amount) has been reached
+		if i >= nodeList.Amount {
+			// Stop the broadcast
+			break
+		}
+
+		// If the node has already been "infected"
+		if p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] {
+			// Skip this node
+			continue
+		}
+
+		p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] = true // Mark the node as infected
+
+		// Set the target node for sending
+		targetNode := Node{
+			Addr: v.Addr, // Set the target address
+			Port: v.Port, // Set the target port
+		}
+
+		// Add the node to the broadcast list
+		targetNodes = append(targetNodes, targetNode)
+		i++
+	}
+
+	if len(targetNodes) > 0 {
+		v := targetNodes[0]
+		bs, err := json.Marshal(p)
+		if err != nil {
+			nodeList.println("[Error]:", err)
+		}
+		write(nodeList, v.Addr, v.Port, bs)
+	} else {
+		nodeList.println("[Error]:", "No target node")
+	}
 }
 
 // Initiate a data exchange request between two nodes

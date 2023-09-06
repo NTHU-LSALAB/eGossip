@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/ebpf"
@@ -80,22 +81,43 @@ func AttachTC(BpfObjs *BpfObjects, link netlink.Link) error {
 	return nil
 }
 
-func PushtoMap(BpfObjs *BpfObjects, key uint32, targets []TargetInfoInterface) error {
+func PushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {
 	mapRef := BpfObjs.objs.TargetsMap
 	var value bpfTargets
 
-	targetCount := len(targets)
+	var targetCount int
+	targets.Range(func(_, _ interface{}) bool {
+		targetCount++
+		return true
+	})
+
 	if targetCount > MAX_TARGETS {
-		return fmt.Errorf("too many targets: %d", value.MaxCount)
+		return fmt.Errorf("too many targets: %d", targetCount)
 	}
 
-	value.MaxCount = uint16('a' + targetCount - 1)
-	fmt.Println("MaxCount", value.MaxCount-'a')
-	for i := 0; i < int(len(targets)); i++ {
-		value.TargetList[i].Ip = targets[i].GetIp()
-		value.TargetList[i].Port = targets[i].GetPort()
-		value.TargetList[i].Mac = targets[i].GetMac()
-	}
+	value.MaxCount = uint16('0' + targetCount - 1)
+	fmt.Println("MaxCount", value.MaxCount-'0')
+
+	i := 0
+	targets.Range(func(key, val interface{}) bool {
+		if i >= MAX_TARGETS {
+			return false
+		}
+
+		target, ok := key.(TargetInfoInterface)
+		if !ok {
+			// handle the error, maybe return
+			return false
+		}
+		value.TargetList[i].Ip = target.GetIp()
+		value.TargetList[i].Port = target.GetPort()
+		value.TargetList[i].Mac = target.GetMac()
+
+		i++
+		return true
+	})
+
+	//fmt.Println("value", value)
 
 	if err := mapRef.Put(key, value); err != nil {
 		return err
