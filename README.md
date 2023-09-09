@@ -15,6 +15,15 @@ If you only want to restart a docker compose server
 
 
 ### Implement function
+
+### eBPF Feature
+
+#### Fastbroadcast
+Using ebpf TC hook to implement a clone redirect with a resruion structure, allowing gossip to quickly replicate multiple copies by only sending a single packet to the Linux protocol stack.
+
+Attention !! In Linux network implementation, to avoid netlink or TC causing packet recursion too many times, which could lead to stack overflow, the XMIT_RESUION_LIMIT is set to 8. If Gossip needs to broadcast to more than 8 nodes, consider modifying the kernel source code.
+
+
 ##### Cluster node list sharing
 * Synchronize the list of cluster nodes through rumor propagation `NodeList` (Each node will eventually store a complete list of nodes that can be used in service registration discovery scenarios)
 ##### Cluster metadata information sharing
