@@ -36,9 +36,9 @@ func task(nodeList *NodeList) {
 		// Initiate a data exchange request with a node in the cluster
 		swapRequest(nodeList)
 
-		if nodeList.IsPrint {
-			nodeList.println("[Listen]:", nodeList.ListenAddr+":"+strconv.Itoa(nodeList.localNode.Port), "/ [Node list]:", nodeList.Get())
-		}
+		// if nodeList.IsPrint {
+		// 	nodeList.println("[Listen]:", nodeList.ListenAddr+":"+strconv.Itoa(nodeList.localNode.Port), "/ [Node list]:", nodeList.Get())
+		// }
 
 		// Interval time
 		time.Sleep(time.Duration(nodeList.Cycle) * time.Second)

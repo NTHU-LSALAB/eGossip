@@ -14,7 +14,7 @@ func write(nodeList *NodeList, addr string, port int, data []byte) {
 // listen
 func listen(nodeList *NodeList, mq chan []byte) {
 	if nodeList.Protocol == "TCP" {
-		tcpListen(nodeList, mq)
+		fmt.Println("Fastbroadcast not support TCP.")
 	} else if nodeList.Protocol == "UDP" {
 		udpListen(nodeList, mq)
 	} else {
