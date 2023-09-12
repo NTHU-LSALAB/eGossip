@@ -49,7 +49,16 @@ struct
 	__type(key, __u32);
 	__type(value, struct targets);
 	__uint(max_entries, 1);
-} targets_map SEC(".maps");
+} targets_map SEC(".maps"); // map for targets
+
+struct 
+{
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(max_entries, 1);
+} metadata_map SEC(".maps"); // map for metadata
+
 
 static inline __u16 compute_ip_checksum(struct iphdr *ip)
 {
@@ -57,7 +66,7 @@ static inline __u16 compute_ip_checksum(struct iphdr *ip)
 	__u16 *next_ip_u16 = (__u16 *)ip;
 
 	ip->check = 0;
-//#pragma clang loop unroll(full)
+#pragma clang loop unroll(full)
 	for (int i = 0; i < (sizeof(*ip) >> 1); i++)
 	{
 		csum += *next_ip_u16++;
@@ -226,6 +235,73 @@ int fastbroadcast(struct __sk_buff *skb)
 #endif
 
 	return TC_ACT_OK;
+}
+
+SEC("filters")
+int xdp_prog(struct __sk_buff *skb) {
+	const int l3_off = ETH_HLEN;					  // IP header offset
+	const int l4_off = l3_off + sizeof(struct iphdr); // L4 header offset
+
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	if (data_end < data + l4_off)
+		return TC_ACT_OK;
+
+	struct ethhdr *eth = data;
+	if (eth->h_proto != htons(ETH_P_IP))
+	{
+#ifdef DEBUG
+		bpf_printk("[fastbroad_prog] not ip packet\n");
+#endif
+		return TC_ACT_OK;
+	}
+
+	struct iphdr *ip = data + l3_off;
+	if (ip->protocol != IPPROTO_UDP)
+	{
+#ifdef DEBUG
+		bpf_printk("[fastbroad_prog] not udp packet\n");
+#endif
+		return TC_ACT_OK;
+	}
+
+	struct udphdr *udp = data + l4_off;
+	char *payload = data + l4_off + sizeof(struct udphdr);
+	if (payload + sizeof(__u64) > data_end)
+	{
+#ifdef DEBUG
+		bpf_printk("[fastbroad_prog] payload + sizeof(__u64) > data_end\n");
+#endif
+		return TC_ACT_OK;
+	}
+
+	if (payload + 30 >= data_end)
+	{
+#ifdef DEBUG
+		bpf_printk("[fastbroad_prog] type_str + 5 >= data_end\n");
+#endif
+		return TC_ACT_OK;
+	}
+
+	if (payload > data_end)
+	{
+#ifdef DEBUG
+		bpf_printk("[fastbroad_prog] payload > data_end\n");
+#endif
+		return TC_ACT_OK;
+	}
+
+	__u32 *map_value;
+	map_value = bpf_map_lookup_elem(&metadata_map, &ip->saddr);
+	if (!map_value) {
+        return XDP_PASS;
+    }
+
+    if (ntohl(ip->daddr) < *map_value) {
+        return XDP_DROP;
+    }
+
+    return XDP_PASS;
 }
 
 // Basic license just for compiling the object code
