@@ -89,6 +89,10 @@ func (nodeList *NodeList) New(localNode Node) {
 	nodeList.localNode.Program = obj
 
 	nodeList.println("[Info]:", "TC attached")
+
+	if err := bpf.AttachXDP(obj, localNode.LinkName); err != nil {
+		nodeList.println()
+	}
 }
 
 // Join joins the cluster
@@ -181,7 +185,7 @@ func (nodeList *NodeList) Set(node Node) {
 	// nodeList.broadcastTarget.Range(f)
 
 	// Update loacl map
-	bpf.PushtoMap(nodeList.localNode.Program, IpToUint32(node.Addr), nodeList.broadcastTarget)
+	bpf.TcPushtoMap(nodeList.localNode.Program, IpToUint32(node.Addr), nodeList.broadcastTarget)
 }
 
 // Get retrieves the local node list

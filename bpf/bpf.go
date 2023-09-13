@@ -3,11 +3,13 @@ package bpf
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -81,7 +83,19 @@ func AttachTC(BpfObjs *BpfObjects, link netlink.Link) error {
 	return nil
 }
 
-func PushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {
+func AttachXDP(BpfObjs *BpfObjects, iface net.Interface) error {
+	l, err := link.AttachXDP(link.XDPOptions{
+		Program:   BpfObjs.objs.XdpProg,
+		Interface: iface.Index,
+	})
+	if err != nil {
+		return err
+	}
+	defer l.Close()
+	return nil
+}
+
+func TcPushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {
 	mapRef := BpfObjs.objs.TargetsMap
 	var value bpfTargets
 
@@ -117,6 +131,15 @@ func PushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {
 	})
 
 	//fmt.Println("value", value)
+
+	if err := mapRef.Put(key, value); err != nil {
+		return err
+	}
+	return nil
+}
+
+func XdpPushToMap(BpfObjs *BpfObjects, key uint32, value int64) error {
+	mapRef := BpfObjs.objs.MetadataMap
 
 	if err := mapRef.Put(key, value); err != nil {
 		return err
