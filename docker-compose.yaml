@@ -11,42 +11,45 @@ services:
       gossip_network:
         ipv4_address: 192.168.3.11
 
-  gossip_service2:
-    build: .
-    command: ["xdp-gossip", "--name", "server2" ,"--link", "eth0", "--proto", "XDP"]
-    ports:
-      - "8082:8080/udp"
-      - "8002:8000/tcp"
-    privileged: true
-    networks:
-      gossip_network:
-        ipv4_address: 192.168.3.12
+  # gossip_service2:
+  #   build: .
+  #   command: ["xdp-gossip", "--name", "server2" ,"--link", "eth0", "--proto", "XDP"]
+  #   ports:
+  #     - "8082:8080/udp"
+  #     - "8002:8000/tcp"
+  #   privileged: true
+  #   networks:
+  #     gossip_network:
+  #       ipv4_address: 192.168.3.12
 
   # gossip_service3:
   #   build: .
-  #   command: ["xdp-gossip", "--name", "server3" ,"--link", "eth0", "--proto", "UDP"]
+  #   command: ["xdp-gossip", "--name", "server3" ,"--link", "eth0", "--proto", "XDP"]
   #   ports:
   #     - "8083:8080/udp"
   #     - "8003:8000/tcp"
   #   privileged: true
-  #   gossip_network:
-  #     ipv4_address: 192.168.3.13
+  #   networks:
+  #     gossip_network:
+  #       ipv4_address: 192.168.3.13
 
   # gossip_service4:
   #   build: .
-  #   command: ["xdp-gossip", "--name", "server4" ,"--link", "eth0", "--proto", "UDP"]
+  #   command: ["xdp-gossip", "--name", "server4" ,"--link", "eth0", "--proto", "XDP"]
   #   ports:
   #     - "8084:8080/udp"
   #     - "8004:8000/tcp"
   #   privileged: true
-  #   gossip_network:
-  #     ipv4_address: 192.168.3.14
+  #   networks:
+  #     gossip_network:
+  #       ipv4_address: 192.168.3.14
+
 
 networks:
   gossip_network:
     driver: bridge
     driver_opts:
-      com.docker.network.driver.mtu: 9000
+      com.docker.network.driver.mtu: 1500
     ipam:
       driver: default
       config:

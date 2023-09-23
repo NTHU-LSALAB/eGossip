@@ -1,6 +1,7 @@
 // +build ignore
 
 #include <linux/bpf.h>
+#include <linux/if_ether.h>
 // #include <linux/in.h>
 #include <linux/udp.h>
 #include <linux/if_ether.h>
@@ -86,6 +87,36 @@ int is_broadcast_packet(const char *payload)
 		}
 	}
 	return 0;
+}
+
+static __always_inline int parse_ip_src_addr(struct xdp_md *ctx, __u32 *ip_src_addr)
+{
+	void *data_end = (void *)(long)ctx->data_end;
+	void *data = (void *)(long)ctx->data;
+
+	// First, parse the ethernet header.
+	struct ethhdr *eth = data;
+	if ((void *)(eth + 1) > data_end)
+	{
+		return 0;
+	}
+
+	if (eth->h_proto != bpf_htons(ETH_P_IP))
+	{
+		// The protocol is not IPv4, so we can't parse an IPv4 source address.
+		return 0;
+	}
+
+	// Then parse the IP header.
+	struct iphdr *ip = (void *)(eth + 1);
+	if ((void *)(ip + 1) > data_end)
+	{
+		return 0;
+	}
+
+	// Return the source IP address in network byte order.
+	*ip_src_addr = (__u32)(ip->saddr);
+	return 1;
 }
 
 SEC("classifier")
@@ -237,71 +268,37 @@ int fastbroadcast(struct __sk_buff *skb)
 	return TC_ACT_OK;
 }
 
-SEC("filters")
-int xdp_prog(struct __sk_buff *skb) {
-	const int l3_off = ETH_HLEN;					  // IP header offset
-	const int l4_off = l3_off + sizeof(struct iphdr); // L4 header offset
+SEC("xdp")
+int fastdrop(struct xdp_md *ctx)
+{
+	void *data_end = (void *)(long)ctx->data_end;
+	void *data = (void *)(long)ctx->data;
 
-	void *data = (void *)(long)skb->data;
-	void *data_end = (void *)(long)skb->data_end;
-	if (data_end < data + l4_off)
-		return TC_ACT_OK;
-
+	// First, parse the ethernet header.
 	struct ethhdr *eth = data;
-	if (eth->h_proto != htons(ETH_P_IP))
+	if ((void *)(eth + 1) > data_end)
 	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] not ip packet\n");
-#endif
-		return TC_ACT_OK;
+		return XDP_PASS;
 	}
 
-	struct iphdr *ip = data + l3_off;
-	if (ip->protocol != IPPROTO_UDP)
+	if (eth->h_proto != bpf_htons(ETH_P_IP))
 	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] not udp packet\n");
-#endif
-		return TC_ACT_OK;
+		// The protocol is not IPv4, so we can't parse an IPv4 source address.
+		return XDP_PASS;
 	}
 
-	struct udphdr *udp = data + l4_off;
-	char *payload = data + l4_off + sizeof(struct udphdr);
-	if (payload + sizeof(__u64) > data_end)
+	// Then parse the IP header.
+	struct iphdr *ip = (void *)(eth + 1);
+	if ((void *)(ip + 1) > data_end)
 	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] payload + sizeof(__u64) > data_end\n");
-#endif
-		return TC_ACT_OK;
+		return XDP_PASS;
 	}
 
-	if (payload + 30 >= data_end)
-	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] type_str + 5 >= data_end\n");
-#endif
-		return TC_ACT_OK;
-	}
+	// Return the source IP address in network byte order.
+	// *ip_src_addr = (__u32)(ip->saddr);
+	__u32 ip_src_addr = (__u32)(ip->saddr);
+	return XDP_PASS;
 
-	if (payload > data_end)
-	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] payload > data_end\n");
-#endif
-		return TC_ACT_OK;
-	}
-
-	__u32 *map_value;
-	map_value = bpf_map_lookup_elem(&metadata_map, &ip->saddr);
-	if (!map_value) {
-        return XDP_PASS;
-    }
-
-    if (ntohl(ip->daddr) < *map_value) {
-        return XDP_DROP;
-    }
-
-    return XDP_PASS;
 }
 
 // Basic license just for compiling the object code

@@ -3,6 +3,7 @@ package bpf
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"sync"
@@ -83,12 +84,14 @@ func AttachTC(BpfObjs *BpfObjects, link netlink.Link) error {
 	return nil
 }
 
-func AttachXDP(BpfObjs *BpfObjects, iface net.Interface) error {
+func AttachXDP(BpfObjs *BpfObjects, linkname string) error {
+	iface, err := net.InterfaceByName(linkname)
 	l, err := link.AttachXDP(link.XDPOptions{
-		Program:   BpfObjs.objs.XdpProg,
+		Program:   BpfObjs.objs.bpfPrograms.Fastdrop,
 		Interface: iface.Index,
 	})
 	if err != nil {
+		log.Fatalf("could not attach XDP program: %s", err)
 		return err
 	}
 	defer l.Close()

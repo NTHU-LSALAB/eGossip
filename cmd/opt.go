@@ -85,14 +85,16 @@ func (nodeList *NodeList) New(localNode Node) {
 		nodeList.println("[Error]:", "Failed to attach TC: %v", err)
 	}
 
-	// Store bpf objects to local node
-	nodeList.localNode.Program = obj
-
 	nodeList.println("[Info]:", "TC attached")
 
+	//Attach XDP program
 	if err := bpf.AttachXDP(obj, localNode.LinkName); err != nil {
 		nodeList.println()
 	}
+	nodeList.println("[Info]:", "XDP attached")
+
+	// Store bpf objects to local node
+	nodeList.localNode.Program = obj
 }
 
 // Join joins the cluster
