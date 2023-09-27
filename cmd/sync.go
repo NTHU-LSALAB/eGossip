@@ -74,7 +74,7 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		}
 
 		// If the packet is for metadata exchange between two nodes
-		if p.IsSwap != 0 {
+		if p.Type >= 2 {
 			// If the version of the metadata in the packet is newer than the local metadata
 			if p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
 				// Update local node's stored metadata
@@ -88,13 +88,16 @@ func consume(nodeList *NodeList, mq chan []byte) {
 			// If the packet's metadata version is older, this means the initiator's metadata version needs to be updated
 			if p.Metadata.Update < nodeList.metadata.Load().(metadata).Update {
 				// If it is a swap request from the initiator
-				fmt.Println(p.IsSwap)
-				if p.IsSwap == 1 {
+				fmt.Println("This is a swap request from the initiator")
+				if p.Type == 2 {
 					// Respond to the initiator, send the latest metadata to the initiator, complete the swap process
 					swapResponse(nodeList, p.Node)
 				}
 			}
 			// Skip, do not broadcast
+			if p.Metadata.Update == nodeList.metadata.Load().(metadata).Update {
+				nodeList.println("Metadat is same, skip")
+			}
 			continue
 		}
 
@@ -105,7 +108,7 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		nodeList.Set(node)
 
 		// If the packet is a metadata update and the metadata version in the packet is newer than the local metadata
-		if p.IsUpdate && p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
+		if p.Type == 1 && p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
 			// Update local node's stored metadata
 			nodeList.metadata.Store(p.Metadata)
 			nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
@@ -167,7 +170,9 @@ func broadcast(nodeList *NodeList, p packet) {
 
 func fastBroadcast(nodeList *NodeList, p packet) {
 
-	p.IsBroadcast = 1
+	// Set the packet as a broadcast packet
+	p.Type = 0
+	//p.IsBroadcast = 1
 
 	// Get all unexpired nodes
 	nodes := nodeList.Get()
@@ -219,9 +224,9 @@ func swapRequest(nodeList *NodeList) {
 	// Set up a swap packet
 	p := packet{
 		// Include local node info in the packet, the receiver uses this to respond to the request
+		Type:      2,
 		Node:      nodeList.localNode,
 		Infected:  make(map[string]bool),
-		IsSwap:    1,
 		Metadata:  nodeList.metadata.Load().(metadata),
 		SecretKey: nodeList.SecretKey,
 	}
@@ -254,9 +259,10 @@ func swapRequest(nodeList *NodeList) {
 func swapResponse(nodeList *NodeList, node Node) {
 	// Set as a swap packet
 	p := packet{
-		Node:      nodeList.localNode,
-		Infected:  make(map[string]bool),
-		IsSwap:    2,
+		Type:     3,
+		Node:     nodeList.localNode,
+		Infected: make(map[string]bool),
+		//IsSwap:    2,
 		Metadata:  nodeList.metadata.Load().(metadata),
 		SecretKey: nodeList.SecretKey,
 	}

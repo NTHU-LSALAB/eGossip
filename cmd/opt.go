@@ -248,7 +248,8 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 
 		// Set the packet as metadata update packet
 		Metadata: md,
-		IsUpdate: true,
+		Type:     1,
+		//IsUpdate: true,
 
 		SecretKey: nodeList.SecretKey,
 	}
