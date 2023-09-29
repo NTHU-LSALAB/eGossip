@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/kerwenwwer/xdp-gossip/bpf"
 	"github.com/kerwenwwer/xdp-gossip/cmd"
 	"github.com/spf13/cobra"
 )
@@ -70,6 +71,15 @@ func startServer() {
 		IsPrint:   true,
 	}
 
+	obj, err := bpf.LoadObjects()
+	if err != nil {
+		log.Fatalf("[Error]:", "Failed to load objects: %v", err)
+	}
+
+	nodeList.Program = obj
+
+	l := cmd.ProgramHandler(linkName, obj)
+	defer l.Close()
 	nodeList.New(cmd.Node{
 		Addr:        address,
 		Port:        8000,
@@ -81,6 +91,7 @@ func startServer() {
 	nodeList.Join()
 
 	node := nodeList.Get()
+
 	fmt.Println(node)
 
 	// Set up the HTTP server
@@ -92,9 +103,11 @@ func startServer() {
 
 	// Start the server
 	log.Println("[[Control]: Starting http command server in TCP port 8000.]")
-	http.ListenAndServe(":8000", nil)
+	err = http.ListenAndServe(":8000", nil)
+	if err != nil {
+		log.Panicln("[[Control]: ListenAndServe: ", err)
+	}
 }
-
 func init() {
 	rootCmd.Flags().StringVar(&nodeName, "name", "", "provide a node name")
 	rootCmd.Flags().StringVar(&linkName, "link", "eth0", "provide a link name")
