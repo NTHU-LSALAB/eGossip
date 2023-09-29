@@ -84,18 +84,21 @@ func AttachTC(BpfObjs *BpfObjects, link netlink.Link) error {
 	return nil
 }
 
-func AttachXDP(BpfObjs *BpfObjects, linkname string) error {
+func AttachXDP(BpfObjs *BpfObjects, linkname string) link.Link {
 	iface, err := net.InterfaceByName(linkname)
+	if err != nil {
+		log.Fatalf("lookup network iface %q: %s", linkname, err)
+	}
+
 	l, err := link.AttachXDP(link.XDPOptions{
 		Program:   BpfObjs.objs.bpfPrograms.Fastdrop,
 		Interface: iface.Index,
 	})
 	if err != nil {
 		log.Fatalf("could not attach XDP program: %s", err)
-		return err
 	}
-	defer l.Close()
-	return nil
+	log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
+	return l
 }
 
 func TcPushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {

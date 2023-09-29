@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
 )
 
 // Periodic heartbeat broadcast task
@@ -79,6 +81,9 @@ func consume(nodeList *NodeList, mq chan []byte) {
 			if p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
 				// Update local node's stored metadata
 				nodeList.metadata.Store(p.Metadata)
+				if err := bpf.XdpPushToMap(nodeList.Program, uint32(1), p.Metadata.Update); err != nil {
+					nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
+				}
 				// Skip, do not broadcast, do not respond to initiator
 
 				nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
@@ -111,6 +116,10 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		if p.Type == 1 && p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
 			// Update local node's stored metadata
 			nodeList.metadata.Store(p.Metadata)
+			if err := bpf.XdpPushToMap(nodeList.Program, uint32(1), p.Metadata.Update); err != nil {
+				nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
+			}
+
 			nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
 		}
 

@@ -33,16 +33,17 @@ type NodeList struct {
 	IsPrint bool // Whether to print list synchronization information to the console
 
 	metadata atomic.Value // Metadata, the metadata content of each node in the cluster is consistent, equivalent to the public data of the cluster (can store some common configuration information), can update the metadata content of each node through broadcasting
+
+	Program *bpf.BpfObjects // bpf program
 }
 
 // Node represents a node
 type Node struct {
-	Addr        string          `json:"Addr"`        // Node IP address (fill in public IP in public network environment)
-	Port        int             `json:"Port"`        // Port number
-	Name        string          `json:"Name"`        // Node name (customizable)
-	PrivateData string          `json:"PrivateData"` // Node private data (customizable)
-	LinkName    string          // bind xdp to this interface
-	Program     *bpf.BpfObjects // bpf program
+	Addr        string `json:"Addr"`        // Node IP address (fill in public IP in public network environment)
+	Port        int    `json:"Port"`        // Port number
+	Name        string `json:"Name"`        // Node name (customizable)
+	PrivateData string `json:"PrivateData"` // Node private data (customizable)
+	LinkName    string // bind xdp to this interface
 }
 
 type BroadcastTargets struct {

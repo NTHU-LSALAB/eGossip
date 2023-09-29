@@ -99,7 +99,7 @@ func (nl *NodeList) PublishHandler() http.HandlerFunc {
 			http.Error(w, "Can't read request body", http.StatusBadRequest)
 			return
 		}
-
+		fmt.Println(body)
 		// Publish the data
 		nl.Publish(body) // Assuming "Publish" is a method on NodeList
 

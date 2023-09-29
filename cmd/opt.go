@@ -1,11 +1,11 @@
 package cmd
 
 import (
+	"log"
 	"strconv"
 	"time"
 
 	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
-	"github.com/vishvananda/netlink"
 )
 
 // New initializes the local node list
@@ -69,32 +69,6 @@ func (nodeList *NodeList) New(localNode Node) {
 	nodeList.metadata.Store(md) // Initialize metadata information
 
 	// Load bpf objects
-	obj, err := bpf.LoadObjects()
-	if err != nil {
-		nodeList.println("[Error]:", "Failed to load objects: %v", err)
-	}
-
-	// Get netlink by name
-	link, err := netlink.LinkByName(localNode.LinkName)
-	if err != nil {
-		nodeList.println("[Error]:", "Failed to get link by name %v", err)
-	}
-
-	// Attach Tc program
-	if err := bpf.AttachTC(obj, link); err != nil {
-		nodeList.println("[Error]:", "Failed to attach TC: %v", err)
-	}
-
-	nodeList.println("[Info]:", "TC attached")
-
-	//Attach XDP program
-	if err := bpf.AttachXDP(obj, localNode.LinkName); err != nil {
-		nodeList.println()
-	}
-	nodeList.println("[Info]:", "XDP attached")
-
-	// Store bpf objects to local node
-	nodeList.localNode.Program = obj
 }
 
 // Join joins the cluster
@@ -187,7 +161,8 @@ func (nodeList *NodeList) Set(node Node) {
 	// nodeList.broadcastTarget.Range(f)
 
 	// Update loacl map
-	bpf.TcPushtoMap(nodeList.localNode.Program, IpToUint32(node.Addr), nodeList.broadcastTarget)
+
+	bpf.TcPushtoMap(nodeList.Program, IpToUint32(node.Addr), nodeList.broadcastTarget)
 }
 
 // Get retrieves the local node list
@@ -217,7 +192,7 @@ func (nodeList *NodeList) Get() []Node {
 // Publish publishes new metadata information in the cluster
 func (nodeList *NodeList) Publish(newMetadata []byte) {
 
-	// Return if the node's local node list has not been initialized
+	//Return if the node's local node list has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
 		nodeList.println("[Error]:", "Please use the New() function first")
 		return
@@ -238,10 +213,14 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 		Update: time.Now().UnixNano(), // Metadata update timestamps
 	}
 
-	// Update local node metadata info
+	// // Update local node metadata info
 	nodeList.metadata.Store(md)
+	program := nodeList.Program
+	if err := bpf.XdpPushToMap(program, uint32(0), md.Update); err != nil {
+		nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
+	}
 
-	// Set packet
+	// // Set packet
 	p := packet{
 		Node:     nodeList.localNode,
 		Infected: infected,
@@ -253,9 +232,11 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 
 		SecretKey: nodeList.SecretKey,
 	}
+	log.Println(p)
 
 	// Broadcast packet in the cluster
-	broadcast(nodeList, p)
+	//broadcast(nodeList, p)
+	fastBroadcast(nodeList, p)
 }
 
 // Read retrieves the metadata information from the local node list
