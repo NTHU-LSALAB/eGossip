@@ -80,6 +80,7 @@ func startServer() {
 
 	l := cmd.ProgramHandler(linkName, obj)
 	defer l.Close()
+
 	nodeList.New(cmd.Node{
 		Addr:        address,
 		Port:        8000,

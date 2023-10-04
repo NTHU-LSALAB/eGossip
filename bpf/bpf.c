@@ -60,7 +60,7 @@ struct
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__type(key, __u32);
 	__type(value, int64_t);
-	__uint(max_entries, 10);
+	__uint(max_entries, 1);
 } metadata_map SEC(".maps"); // map for metadata
 
 static __always_inline __u16 compute_ip_checksum(struct iphdr *ip)
@@ -318,10 +318,9 @@ int fastdrop(struct xdp_md *ctx)
 		if(*(cursor+i) == ','){
 			break;
 		}
-		bpf_printk("[fastdrop_prog]i: %d cursor: %c\n", i, *(cursor+i));
+		//bpf_printk("[fastdrop_prog]i: %d cursor: %c\n", i, *(cursor+i));
 		value = value * 10 + (*(cursor+i) - '0');
 	}
-	bpf_printk("[fastdrop_prog]value upper: %ld\n",value);
 
 	// Search for the key in the payload
 	__u32 key = 0;
@@ -330,9 +329,6 @@ int fastdrop(struct xdp_md *ctx)
 	{
 		return XDP_PASS;
 	}
-#ifdef DEBUG_XDP
-	bpf_printk("[fastdrop_prog] update_time: %ld\n", *update_time);
-#endif
 
 	if (*update_time == value)
 	{
