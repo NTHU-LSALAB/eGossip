@@ -6,10 +6,6 @@ import (
 	"net"
 )
 
-var limits = make(chan []byte)
-var count int
-var multipleReceiver int
-
 // udpWrite send udp data
 func udpWrite(nodeList *NodeList, addr string, port int, data []byte) {
 	socket, err := net.DialUDP("udp", nil, &net.UDPAddr{
@@ -80,24 +76,5 @@ func udpListen(nodeList *NodeList, mq chan []byte) {
 
 		//elapsed := time.Since(start)
 		//nodeList.println("Latency for packet: ", elapsed)
-	}
-}
-
-// func initXdp(nodeList *NodeList) {
-
-// }
-
-func udpprocess(mq chan []byte) {
-	for pktData := range limits {
-		// PAYLOAD
-		_ = pktData
-		count++
-		//log.Println(count)
-		mq <- pktData[42:]
-		// log.Print(
-		// 	"SrcIP: ", net.IP(pktData[26:30]).String(), ", SrcPort: ", int(pktData[34])*256+int(pktData[35]),
-		// 	", DstIP: ", net.IP(pktData[30:34]).String(), ", DstPort: ", int(pktData[36])*256+int(pktData[37]),
-		// 	", Data: ", string(pktData[42:]),
-		// )
 	}
 }
