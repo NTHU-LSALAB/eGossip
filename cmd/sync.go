@@ -189,6 +189,7 @@ func broadcast(nodeList *NodeList, p packet) {
 		if err != nil {
 			nodeList.println("[Infection Error]:", err)
 		}
+
 		// Send the packet
 		write(nodeList, v.Addr, v.Port, bs)
 	}
@@ -241,7 +242,6 @@ func fastBroadcast(nodeList *NodeList, p packet) {
 	}
 
 	if nodeList.Protocol == "XDP" {
-		nodeList.println(targetNodes)
 		// Update loacl map
 		bpf.TcPushtoMap(nodeList.Program, IpToUint32(nodeList.localNode.Addr), bpfTargets)
 	}
@@ -272,6 +272,7 @@ func swapRequest(nodeList *NodeList) {
 	// Fetch all unexpired nodes
 	nodes := nodeList.Get()
 
+	// Convert the packet to JSON
 	bs, err := json.Marshal(p)
 	if err != nil {
 		nodeList.println("[Swap Request Parsing Error]:", err)

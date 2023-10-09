@@ -9,14 +9,12 @@ import (
 
 // NodeList is a list of nodes
 type NodeList struct {
-	nodes           sync.Map // Collection of nodes (key is Node structure, value is the most recent second-level timestamp of node update)
-	broadcastTarget sync.Map // Broadcast target
-
-	Amount  int   // Number of nodes to send synchronization information to at one time
-	Cycle   int64 // Synchronization cycle (how many seconds to send list synchronization information to other nodes)
-	Buffer  int   // UDP/TCP receive buffer size (determines how many requests the UDP/TCP listening service can process asynchronously)
-	Size    int   // Maximum capacity of a single UDP/TCP heartbeat packet (in bytes)
-	Timeout int64 // Expiry deletion limit for a single node (delete after how many seconds)
+	nodes   sync.Map // Collection of nodes (key is Node structure, value is the most recent second-level timestamp of node update)
+	Amount  int      // Number of nodes to send synchronization information to at one time
+	Cycle   int64    // Synchronization cycle (how many seconds to send list synchronization information to other nodes)
+	Buffer  int      // UDP/TCP receive buffer size (determines how many requests the UDP/TCP listening service can process asynchronously)
+	Size    int      // Maximum capacity of a single UDP/TCP heartbeat packet (in bytes)
+	Timeout int64    // Expiry deletion limit for a single node (delete after how many seconds)
 
 	SecretKey string // Cluster key, the keys of all nodes in the same cluster should be consistent
 
@@ -65,6 +63,7 @@ func (t BroadcastTargets) GetMac() [6]int8 {
 type packet struct {
 	Type  uint8  // 0: heartbeat packet, 1: metadata update packet , 2: initiator sends an exchange request to the recipient, 3: recipient responds to the initiator, data exchange completed
 	Count uint16 // Broadcast packet count (0-64)
+
 	// Metadata information
 	Metadata metadata // New metadata information, if the packet is a metadata update packet (isUpdate=true), then replace the original cluster metadata with newData
 
