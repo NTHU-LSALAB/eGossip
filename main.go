@@ -71,15 +71,19 @@ func startServer() {
 		IsPrint:   true,
 	}
 
-	obj, err := bpf.LoadObjects()
-	if err != nil {
-		log.Fatalf("[Error]:", "Failed to load objects: %v", err)
+	fmt.Println(protocol)
+
+	if nodeList.Protocol == "XDP" {
+		obj, err := bpf.LoadObjects()
+		if err != nil {
+			log.Fatalf("[Error]:", "Failed to load objects: %v", err)
+		}
+
+		nodeList.Program = obj
+
+		l := cmd.ProgramHandler(linkName, obj)
+		defer l.Close()
 	}
-
-	nodeList.Program = obj
-
-	l := cmd.ProgramHandler(linkName, obj)
-	defer l.Close()
 
 	nodeList.New(cmd.Node{
 		Addr:        address,

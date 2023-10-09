@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"encoding/binary"
-	"log"
-	"net"
 	"sync"
 	"sync/atomic"
 
@@ -25,7 +22,7 @@ type NodeList struct {
 
 	localNode Node // Local node information
 
-	Protocol   string // Network protocol used by the cluster connection, UDP or TCP, default is UDP
+	Protocol   string // Network protocol used by the cluster connection, UDP or TCP, XDP(UDP based with ebpf feature) default is UDP
 	ListenAddr string // Local UDP/TCP listening address, use this address to receive heartbeat packets from other nodes (usually 0.0.0.0 is sufficient)
 
 	status atomic.Value // Status of local node list update (true: running normally, false: stop publishing heartbeat)
@@ -71,29 +68,16 @@ type packet struct {
 	// Metadata information
 	Metadata metadata // New metadata information, if the packet is a metadata update packet (isUpdate=true), then replace the original cluster metadata with newData
 
-	//IsBroadcast uint8  // Whether the packet is a broadcast packet (true: yes, false: no)
-	//IsUpdate    bool   // Whether the packet is a metadata update packet (true: yes, false: no)
-	//IsSwap      uint8  // Whether the packet is a metadata exchange packet (0: no, 1: initiator sends an exchange request to the recipient, 2: recipient responds to the initiator, data exchange completed)
-
 	// Node information
 	Node     Node            // Node information in the heartbeat packet
 	Infected map[string]bool // List of nodes already infected by this packet, the key is a string concatenated by Addr:Port, and the value determines whether the node has been infected (true: yes, false: no)
 
 	SecretKey string // Cluster key, if it doesn't match, reject processing this packet
+	CountStr  string
 }
 
 // Metadata information
 type metadata struct {
 	Update int64  // Metadata version (update timestamp)
 	Data   []byte // Metadata content
-}
-
-// IpToUint32 converts IP to uint32
-func IpToUint32(ipStr string) uint32 {
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		log.Fatalf("Failed to parse IP: %s", ipStr)
-	}
-	ip = ip.To4()
-	return binary.LittleEndian.Uint32(ip)
 }

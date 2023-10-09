@@ -17,6 +17,8 @@ func listen(nodeList *NodeList, mq chan []byte) {
 		fmt.Println("Fastbroadcast not support TCP.")
 	} else if nodeList.Protocol == "UDP" {
 		udpListen(nodeList, mq)
+	} else if nodeList.Protocol == "XDP" {
+		udpListen(nodeList, mq)
 	} else {
 		fmt.Println("Protocol not supported")
 	}

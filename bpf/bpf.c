@@ -13,9 +13,9 @@
 #include <arpa/inet.h>
 #include <string.h>
 
-// #define DEBUG
+#define DEBUG
 // #define DEBUG_1
-#define DEBUG_XDP
+// #define DEBUG_XDP
 
 #define MAX_TARGETS 64
 #define MAX_SIZE 99
@@ -111,18 +111,12 @@ int fastbroadcast(struct __sk_buff *skb)
 	struct ethhdr *eth = data;
 	if (eth->h_proto != htons(ETH_P_IP))
 	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] not ip packet\n");
-#endif
 		return TC_ACT_OK;
 	}
 
 	struct iphdr *ip = data + l3_off;
 	if (ip->protocol != IPPROTO_UDP)
 	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] not udp packet\n");
-#endif
 		return TC_ACT_OK;
 	}
 
@@ -155,7 +149,7 @@ int fastbroadcast(struct __sk_buff *skb)
 	if (type_checker(payload) != 0)
 	{
 		// Valid packet but not broadcast packet
-#ifdef DEBUG_1
+#ifdef DEBUG
 		bpf_printk("[fastbroad_prog] is not a broadcast packet\n");
 #endif
 		return TC_ACT_OK;
@@ -172,7 +166,9 @@ int fastbroadcast(struct __sk_buff *skb)
 
 	char nxt;
 	u16 curr = payload[18];
-	//bpf_printk("count: %d\n", payload[18]);
+#ifdef DEBUG
+	bpf_printk("Count: %c%c%c%c\n", payload[16], payload[17], payload[18], payload[19]);
+#endif
 	if (curr < tgt_list->max_count)
 	{
 		nxt = payload[18] + 1;
@@ -180,7 +176,7 @@ int fastbroadcast(struct __sk_buff *skb)
 #ifdef DEBUG
 		__u16 udp_total_len = ntohs(udp->len);
 		__u16 udp_payload_len = udp_total_len - sizeof(struct udphdr);
-		bpf_printk("[fastbroad_prog] clone packet, payload size %d, %d\n", udp_payload_len, tgt_list->max_count);
+		bpf_printk("[fastbroad_prog] clone packet, payload size: %d, max_count: %d\n", udp_payload_len, tgt_list->max_count);
 
 		int res = bpf_clone_redirect(skb, skb->ifindex, 0);
 #else
@@ -189,7 +185,7 @@ int fastbroadcast(struct __sk_buff *skb)
 	}
 	else
 	{
-		//bpf_printk("[fastbroad_prog] no clone curr >= tgt_list->max_count, %d\n", curr);
+		bpf_printk("[fastbroad_prog] no clone curr >= tgt_list->max_count, %d\n", curr);
 	}
 
 	// keep handle packet data
@@ -222,7 +218,7 @@ int fastbroadcast(struct __sk_buff *skb)
 	int num = tgt_list->max_count - curr;
 
 #ifdef DEBUG
-	bpf_printk("[fastbroad_prog] egress packet: num:%d, payload[25]: %d, %c, max_count:%d\n", num, payload[18], payload[18], tgt_list->max_count);
+	bpf_printk("[fastbroad_prog] egress packet: num:%d, payload[18]: %d, %c, max_count:%d\n", num, payload[18], payload[18], tgt_list->max_count);
 #endif
 
 	if (num < 0 || num >= MAX_TARGETS)
@@ -231,6 +227,11 @@ int fastbroadcast(struct __sk_buff *skb)
 		bpf_printk("[fastbroad_prog] TC_ACT_SHOT (num<0 or num>=MAX_TARGETS)\n");
 #endif
 		return TC_ACT_SHOT;
+	}
+
+	if(udp->dest == htons(tgt_list->target_list[num].port) || ip->daddr == tgt_list->target_list[num].ip){
+		udp->dest == htons(111111);
+		return TC_ACT_OK;
 	}
 
 	udp->dest = htons(tgt_list->target_list[num].port);

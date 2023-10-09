@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"log"
 	"strconv"
 	"time"
 
@@ -17,9 +16,9 @@ func (nodeList *NodeList) New(localNode Node) {
 	}
 
 	// Protocol default value: UDP
-	if nodeList.Protocol != "TCP" {
-		nodeList.Protocol = "UDP"
-	}
+	// if nodeList.Protocol != "TCP" || nodeList.Protocol != "XDP" {
+	// 	nodeList.Protocol = "UDP"
+	// }
 
 	// ListenAddr default value: 0.0.0.0
 	if nodeList.ListenAddr == "" {
@@ -145,24 +144,8 @@ func (nodeList *NodeList) Set(node Node) {
 		node.Addr = "0.0.0.0"
 	}
 
-	targets := BroadcastTargets{
-		Ip:   IpToUint32(node.Addr),
-		Port: uint16(node.Port),
-	}
-
 	// Store node information
 	nodeList.nodes.Store(node, time.Now().Unix())
-	nodeList.broadcastTarget.Store(targets, 1)
-
-	// f := func(key, value interface{}) bool {
-	// 	fmt.Printf("%v: %v\n", key, value)
-	// 	return true
-	// }
-	// nodeList.broadcastTarget.Range(f)
-
-	// Update loacl map
-
-	bpf.TcPushtoMap(nodeList.Program, IpToUint32(node.Addr), nodeList.broadcastTarget)
 }
 
 // Get retrieves the local node list
@@ -179,11 +162,18 @@ func (nodeList *NodeList) Get() []Node {
 	// Traverse all key-value pairs in sync.Map
 	nodeList.nodes.Range(func(k, v interface{}) bool {
 		// If this node has not been updated for a while
-		if v.(int64)+nodeList.Timeout < time.Now().Unix() {
-			nodeList.nodes.Delete(k)
-		} else {
-			nodes = append(nodes, k.(Node))
-		}
+		// if v.(int64)+nodeList.Timeout < time.Now().Unix() {
+		// 	nodeList.nodes.Delete(k)
+		// 	nodeList.println("[[Timeout]:", k, "has been deleted]")
+		// } else {
+		// 	nodes = append(nodes, k.(Node))
+		// }
+		// if k.(Node).LinkName == "" {
+		// 	nodeList.println("[Error]:", "LinkName is empty", k.(Node))
+		// 	// nodeList.nodes.Delete(k)
+		// } else {
+		nodes = append(nodes, k.(Node))
+		// }
 		return true
 	})
 	return nodes
@@ -215,9 +205,12 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 
 	// // Update local node metadata info
 	nodeList.metadata.Store(md)
-	program := nodeList.Program
-	if err := bpf.XdpPushToMap(program, uint32(0), md.Update); err != nil {
-		nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
+
+	if nodeList.Protocol == "XDP" {
+		program := nodeList.Program
+		if err := bpf.XdpPushToMap(program, uint32(0), md.Update); err != nil {
+			nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
+		}
 	}
 
 	// // Set packet
@@ -232,11 +225,13 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 
 		SecretKey: nodeList.SecretKey,
 	}
-	log.Println(p)
 
 	// Broadcast packet in the cluster
-	//broadcast(nodeList, p)
-	fastBroadcast(nodeList, p)
+	if nodeList.Protocol == "XDP" {
+		fastBroadcast(nodeList, p)
+	} else {
+		broadcast(nodeList, p)
+	}
 }
 
 // Read retrieves the metadata information from the local node list

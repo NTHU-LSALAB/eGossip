@@ -84,6 +84,26 @@ func AttachTC(BpfObjs *BpfObjects, link netlink.Link) error {
 	return nil
 }
 
+func RemoveTC(ifName string, tcDir uint32) error {
+	link, err := netlink.LinkByName(ifName)
+	if err != nil {
+		return err
+	}
+
+	filters, err := netlink.FilterList(link, tcDir)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range filters {
+		if err := netlink.FilterDel(f); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func AttachXDP(BpfObjs *BpfObjects, linkname string) link.Link {
 	iface, err := net.InterfaceByName(linkname)
 	if err != nil {
@@ -97,7 +117,7 @@ func AttachXDP(BpfObjs *BpfObjects, linkname string) link.Link {
 	if err != nil {
 		log.Fatalf("could not attach XDP program: %s", err)
 	}
-	log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
+	//log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
 	return l
 }
 
@@ -110,12 +130,14 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {
 		targetCount++
 		return true
 	})
+	//fmt.Println("targetCount", targetCount)
 
 	if targetCount > MAX_TARGETS {
 		return fmt.Errorf("too many targets: %d", targetCount)
 	}
 
 	value.MaxCount = uint16('0' + targetCount - 1)
+	//fmt.Println("value.MaxCount", value.MaxCount)
 
 	i := 0
 	targets.Range(func(key, val interface{}) bool {
