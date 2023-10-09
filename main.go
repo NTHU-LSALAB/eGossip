@@ -71,8 +71,6 @@ func startServer() {
 		IsPrint:   true,
 	}
 
-	fmt.Println(protocol)
-
 	if nodeList.Protocol == "XDP" {
 		obj, err := bpf.LoadObjects()
 		if err != nil {
@@ -94,10 +92,6 @@ func startServer() {
 	})
 
 	nodeList.Join()
-
-	node := nodeList.Get()
-
-	fmt.Println(node)
 
 	// Set up the HTTP server
 	http.HandleFunc("/set", nodeList.SetNodeHandler())
