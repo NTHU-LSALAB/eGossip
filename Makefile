@@ -1,4 +1,4 @@
-all: bpf/*.o build docker-up
+all: bpf/*.o build
 
 .PHONY: bpf/*.o 
 bpf/*.o: bpf/*.c
