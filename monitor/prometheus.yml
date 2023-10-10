@@ -1,6 +1,6 @@
 global:
-  scrape_interval: 15s #Scrape interval to every 15 seconds.
-  evaluation_interval: 15s #Evaluate rules every 15 seconds.
+  scrape_interval: 1s #Scrape interval to every 15 seconds.
+  evaluation_interval: 1s #Evaluate rules every 15 seconds.
   
 scrape_configs:
   - job_name: "prometheus"

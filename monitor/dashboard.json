@@ -252,7 +252,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_cpu_user_seconds_total{image!=\"\"}[5m]) * 100)",
+          "expr": "sum(rate(container_cpu_user_seconds_total{name!~\"cadvisor|prometheus|grafana\",image!=\"\"}[5s]) * 100)",
           "intervalFactor": 2,
           "legendFormat": "",
           "metric": "container_memory_usage_bytes",
@@ -320,7 +320,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_cpu_user_seconds_total{image!=\"\"}[5m]) * 100",
+          "expr": "rate(container_cpu_user_seconds_total{name!~\"cadvisor|prometheus|grafana\",image!=\"\"}[5s]) * 100",
           "intervalFactor": 2,
           "legendFormat": "{{name}}",
           "metric": "cpu",
@@ -415,7 +415,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "container_memory_usage_bytes{image!=\"\"}",
+          "expr": "container_memory_usage_bytes{name!~\"cadvisor|prometheus|grafana\",image!=\"\"}",
           "hide": false,
           "intervalFactor": 2,
           "legendFormat": "{{name}}",
@@ -509,7 +509,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "irate(container_network_receive_bytes_total{image!=\"\"}[5m])",
+          "expr": "irate(container_network_receive_bytes_total{name!~\"cadvisor|prometheus|grafana\",image!=\"\"}[5s])",
           "intervalFactor": 2,
           "legendFormat": "{{name}}",
           "metric": "container_network_receive_bytes_total",
@@ -601,7 +601,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "irate(container_network_transmit_bytes_total{image!=\"\"}[5m])",
+          "expr": "irate(container_network_transmit_bytes_total{name!~\"cadvisor|prometheus|grafana\",image!=\"\"}[5s])",
           "intervalFactor": 2,
           "legendFormat": "{{name}}",
           "refId": "A",
