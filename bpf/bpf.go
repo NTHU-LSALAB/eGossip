@@ -158,7 +158,7 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {
 		return true
 	})
 
-	//fmt.Println("value", value)
+	fmt.Println("BC value", value)
 
 	if err := mapRef.Put(key, value); err != nil {
 		return err

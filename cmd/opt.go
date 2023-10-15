@@ -27,7 +27,7 @@ func (nodeList *NodeList) New(localNode Node) {
 
 	// Amount default value: 3
 	if nodeList.Amount == 0 {
-		nodeList.Amount = 3
+		nodeList.Amount = 64
 	}
 
 	// Cycle default value: 6

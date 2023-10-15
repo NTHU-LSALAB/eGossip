@@ -149,6 +149,7 @@ func consume(nodeList *NodeList, mq chan []byte) {
 // Broadcast information
 func broadcast(nodeList *NodeList, p packet) {
 
+	p.Type = 0
 	// Get all unexpired nodes
 	nodes := nodeList.Get()
 
@@ -183,6 +184,8 @@ func broadcast(nodeList *NodeList, p packet) {
 		i++
 	}
 
+	//nodeList.println("[Fast Broadcast]:", len(targetNodes))
+
 	// Broadcast the "infection" data to these uninfected nodes
 	for _, v := range targetNodes {
 		bs, err := json.Marshal(p)
@@ -196,18 +199,14 @@ func broadcast(nodeList *NodeList, p packet) {
 }
 
 func fastBroadcast(nodeList *NodeList, p packet) {
-	//broadcast(nodeList, p)
-	// Set the packet as a broadcast packet
 	p.Type = 0
-	p.Count = 0
-	// v := p.Node
 	nodes := nodeList.Get()
 
-	var targetNodes []Node
 	var bpfTargets sync.Map
 
 	// Select some uninfected nodes
 	i := 0
+
 	for _, v := range nodes {
 
 		// If the maximum number of pushes (Amount) has been reached
@@ -225,35 +224,40 @@ func fastBroadcast(nodeList *NodeList, p packet) {
 
 		p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] = true // Mark the node as infected
 		// Set the target node for sending
-		targetNode := Node{
-			Addr: v.Addr, // Set the target address
-			Port: v.Port, // Set the target port
-		}
-
 		tg := BroadcastTargets{
 			Ip:   IpToUint32(v.Addr),
 			Port: uint16(v.Port),
 		}
 
 		// Add the node to the broadcast list
-		targetNodes = append(targetNodes, targetNode)
 		bpfTargets.Store(tg, true)
 		i++
 	}
+
+	//nodeList.println("[Fast Broadcast]:", len(targetNodes))
 
 	if nodeList.Protocol == "XDP" {
 		// Update loacl map
 		bpf.TcPushtoMap(nodeList.Program, IpToUint32(nodeList.localNode.Addr), bpfTargets)
 	}
 
-	if len(targetNodes) != 0 {
+	var firstTarget *BroadcastTargets
+	bpfTargets.Range(func(key, value interface{}) bool {
+		firstTarget = key.(*BroadcastTargets) // Save the first target
+		return false
+	})
+
+	if firstTarget != nil {
 		bs, err := json.Marshal(p)
 		if err != nil {
 			nodeList.println("[Infection Error]:", err)
 		}
-		//nodeList.println(targetNodes[0].Addr, targetNodes[0].Port, bs)
-		write(nodeList, targetNodes[0].Addr, targetNodes[0].Port, bs)
+		addr := Uint32ToIp(firstTarget.Ip) // Convet the IP address to string
+		port := firstTarget.Port
+		nodeList.println(addr, int(port), bs)
+		write(nodeList, addr, int(port), bs)
 	}
+
 }
 
 // Initiate a data exchange request between two nodes

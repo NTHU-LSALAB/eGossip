@@ -13,7 +13,8 @@
 #include <arpa/inet.h>
 #include <string.h>
 
-#define DEBUG
+// #define DEBUG
+#define DEBUG_SEND
 // #define DEBUG_1
 // #define DEBUG_XDP
 
@@ -166,14 +167,14 @@ int fastbroadcast(struct __sk_buff *skb)
 
 	char nxt;
 	u16 curr = payload[18];
-#ifdef DEBUG
+#ifdef DEBUG_SEND
 	bpf_printk("Count: %c%c%c%c\n", payload[16], payload[17], payload[18], payload[19]);
 #endif
 	if (curr < tgt_list->max_count)
 	{
 		nxt = payload[18] + 1;
 		payload[18] = nxt;
-#ifdef DEBUG
+#ifdef DEBUG_SEND
 		__u16 udp_total_len = ntohs(udp->len);
 		__u16 udp_payload_len = udp_total_len - sizeof(struct udphdr);
 		bpf_printk("[fastbroad_prog] clone packet, payload size: %d, max_count: %d\n", udp_payload_len, tgt_list->max_count);
@@ -185,7 +186,7 @@ int fastbroadcast(struct __sk_buff *skb)
 	}
 	else
 	{
-		bpf_printk("[fastbroad_prog] no clone curr >= tgt_list->max_count, %d\n", curr);
+		//bpf_printk("[fastbroad_prog] no clone curr >= tgt_list->max_count, %d\n", curr);
 	}
 
 	// keep handle packet data
@@ -229,8 +230,11 @@ int fastbroadcast(struct __sk_buff *skb)
 		return TC_ACT_SHOT;
 	}
 
-	if(udp->dest == htons(tgt_list->target_list[num].port) || ip->daddr == tgt_list->target_list[num].ip){
+	if(udp->dest == htons(tgt_list->target_list[num].port) && ip->daddr == tgt_list->target_list[num].ip){
 		udp->dest == htons(111111);
+#ifdef DEBUG_SEND
+		bpf_printk("same port or ip\n");
+#endif
 		return TC_ACT_OK;
 	}
 
@@ -240,7 +244,7 @@ int fastbroadcast(struct __sk_buff *skb)
 	ip->check = compute_ip_checksum(ip);
 	// memcpy(eth->h_dest, tgt_list->target_list[num].mac, ETH_ALEN);
 
-#ifdef DEBUG
+#ifdef DEBUG_SEND
 	bpf_printk("[fastbroad_prog] egress packet acceptd, info: port:%d, ip:%d, mac:%s\n", udp->dest, ip->daddr, eth->h_dest);
 #endif
 
@@ -307,6 +311,7 @@ int fastdrop(struct xdp_md *ctx)
 	cursor++;
 
 	int64_t value = 0;
+#pragma clang loop unroll(full)
 	for (int i = 0; i < MAX_INT64_LEN; i++) {
 		if (cursor + (i + 1) > data_end){
 			return XDP_DROP;			
