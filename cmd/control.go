@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -79,7 +78,7 @@ func (nl *NodeList) GetMetadataHandler() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(metadataJSON)
 
-		log.Println("[Control]: Get local metadata successfully.")
+		//log.Println("[Control]: Get local metadata successfully.")
 	}
 }
 
@@ -99,7 +98,7 @@ func (nl *NodeList) PublishHandler() http.HandlerFunc {
 			http.Error(w, "Can't read request body", http.StatusBadRequest)
 			return
 		}
-		fmt.Println(body)
+		//fmt.Println(body)
 		// Publish the data
 		nl.Publish(body) // Assuming "Publish" is a method on NodeList
 
@@ -127,7 +126,7 @@ func (nl *NodeList) SetNodeHandler() http.HandlerFunc {
 			return
 		}
 
-		fmt.Printf("Request Body: %s\n", string(body))
+		//fmt.Printf("Request Body: %s\n", string(body))
 
 		var node Node
 		err = json.Unmarshal(body, &node)
@@ -147,6 +146,6 @@ func (nl *NodeList) SetNodeHandler() http.HandlerFunc {
 			return
 		}
 
-		log.Println("[Control]: Node list updated successfully.")
+		//log.Println("[Control]: Node list updated successfully.")
 	}
 }

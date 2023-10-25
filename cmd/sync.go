@@ -90,11 +90,11 @@ func consume(nodeList *NodeList, mq chan []byte) {
 			if p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
 				// Update local node's stored metadata
 				nodeList.metadata.Store(p.Metadata)
-				if nodeList.Protocol == "XDP" {
-					if err := bpf.XdpPushToMap(nodeList.Program, uint32(0), p.Metadata.Update); err != nil {
-						nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
-					}
-				}
+				// if nodeList.Protocol == "XDP" {
+				// 	if err := bpf.XdpPushToMap(nodeList.Program, uint32(0), p.Metadata.Update); err != nil {
+				// 		nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
+				// 	}
+				// }
 				// Skip, do not broadcast, do not respond to initiator
 
 				nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
@@ -124,14 +124,14 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		nodeList.Set(node)
 
 		// If the packet is a metadata update and the metadata version in the packet is newer than the local metadata
-		if p.Type == 1 && p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
+		if p.IsUpdate && p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
 			// Update local node's stored metadata
 			nodeList.metadata.Store(p.Metadata)
-			if nodeList.Protocol == "XDP" {
-				if err := bpf.XdpPushToMap(nodeList.Program, uint32(0), p.Metadata.Update); err != nil {
-					nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
-				}
-			}
+			// if nodeList.Protocol == "XDP" {
+			// 	if err := bpf.XdpPushToMap(nodeList.Program, uint32(0), p.Metadata.Update); err != nil {
+			// 		nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
+			// 	}
+			// }
 
 			nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
 		}
@@ -199,7 +199,7 @@ func broadcast(nodeList *NodeList, p packet) {
 }
 
 func fastBroadcast(nodeList *NodeList, p packet) {
-	p.Type = 0
+	p.Type = 1
 	nodes := nodeList.Get()
 
 	var bpfTargets sync.Map
@@ -213,6 +213,11 @@ func fastBroadcast(nodeList *NodeList, p packet) {
 		if i >= nodeList.Amount {
 			// Stop the broadcast
 			break
+		}
+
+		if v.Addr == nodeList.localNode.Addr && v.Port == nodeList.localNode.Port {
+			// Skip to broadcast to self
+			continue
 		}
 
 		// If the node has already been "infected"
@@ -235,29 +240,42 @@ func fastBroadcast(nodeList *NodeList, p packet) {
 	}
 
 	//nodeList.println("[Fast Broadcast]:", len(targetNodes))
-
-	if nodeList.Protocol == "XDP" {
-		// Update loacl map
-		bpf.TcPushtoMap(nodeList.Program, IpToUint32(nodeList.localNode.Addr), bpfTargets)
-	}
-
 	var firstTarget *BroadcastTargets
 	bpfTargets.Range(func(key, value interface{}) bool {
-		firstTarget = key.(*BroadcastTargets) // Save the first target
+		if target, ok := key.(BroadcastTargets); ok {
+			firstTarget = &target
+		} else {
+			// Handle the unexpected type or other logic as needed
+			return false
+		}
 		return false
 	})
 
 	if firstTarget != nil {
+		// bpfLock.Lock()
+		// defer bpfLock.Unlock()
+
+		map_id := nodeList.Counter.Next()
+		if map_id == 0 {
+			fmt.Println("[MAP ID]:", map_id)
+		}
+		p.Mapkey = map_id
+		if err := bpf.TcPushtoMap(nodeList.Program, map_id, bpfTargets); err != nil {
+			nodeList.println("[Error]:", "Failed to push to map", err)
+		}
+
 		bs, err := json.Marshal(p)
 		if err != nil {
 			nodeList.println("[Infection Error]:", err)
 		}
 		addr := Uint32ToIp(firstTarget.Ip) // Convet the IP address to string
 		port := firstTarget.Port
-		nodeList.println(addr, int(port), bs)
+		//nodeList.println(addr, int(port), bs)
 		write(nodeList, addr, int(port), bs)
-	}
-
+		//time.Sleep(100 * time.Millisecond)
+	} /*else {
+		//nodeList.println("no target")
+	}*/
 }
 
 // Initiate a data exchange request between two nodes

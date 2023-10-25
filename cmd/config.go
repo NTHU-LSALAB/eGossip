@@ -7,6 +7,8 @@ import (
 	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
 )
 
+var bpfLock sync.Mutex
+
 // NodeList is a list of nodes
 type NodeList struct {
 	nodes   sync.Map // Collection of nodes (key is Node structure, value is the most recent second-level timestamp of node update)
@@ -30,6 +32,7 @@ type NodeList struct {
 	metadata atomic.Value // Metadata, the metadata content of each node in the cluster is consistent, equivalent to the public data of the cluster (can store some common configuration information), can update the metadata content of each node through broadcasting
 
 	Program *bpf.BpfObjects // bpf program
+	Counter *AtomicCounter  // bpf program key counter
 }
 
 // Node represents a node
@@ -61,15 +64,16 @@ func (t BroadcastTargets) GetMac() [6]int8 {
 
 // Packet data
 type packet struct {
-	Type  uint8  // 0: heartbeat packet, 1: metadata update packet , 2: initiator sends an exchange request to the recipient, 3: recipient responds to the initiator, data exchange completed
-	Count uint16 // Broadcast packet count (0-64)
-
+	Type   uint8  // 0 not used 1: heartbeat packet, 2: initiator sends an exchange request to the recipient, 3: recipient responds to the initiator, data exchange completed
+	Count  uint16 // Broadcast packet count (0-64)
+	Mapkey uint16 // Map key
 	// Metadata information
 	Metadata metadata // New metadata information, if the packet is a metadata update packet (isUpdate=true), then replace the original cluster metadata with newData
 
 	// Node information
 	Node     Node            // Node information in the heartbeat packet
 	Infected map[string]bool // List of nodes already infected by this packet, the key is a string concatenated by Addr:Port, and the value determines whether the node has been infected (true: yes, false: no)
+	IsUpdate bool            // Whether it is a metadata update packet (0: no, 1: yes)
 
 	SecretKey string // Cluster key, if it doesn't match, reject processing this packet
 	CountStr  string
@@ -79,4 +83,27 @@ type packet struct {
 type metadata struct {
 	Update int64  // Metadata version (update timestamp)
 	Data   []byte // Metadata content
+}
+
+type AtomicCounter struct {
+	val int32
+}
+
+func NewAtomicCounter() *AtomicCounter {
+	return &AtomicCounter{val: 100}
+}
+
+func (ac *AtomicCounter) Next() uint16 {
+	// Increment the current value and get the new value
+	newVal := atomic.AddInt32(&ac.val, 1)
+
+	// If the new value exceeds 999, wrap it around to 100.
+	// Use CAS (Compare-And-Swap) to ensure atomicity.
+	for newVal > 999 {
+		if atomic.CompareAndSwapInt32(&ac.val, newVal, 100) {
+			return 100
+		}
+		newVal = atomic.AddInt32(&ac.val, 1)
+	}
+	return uint16(newVal)
 }

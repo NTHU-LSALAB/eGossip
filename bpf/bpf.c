@@ -13,12 +13,13 @@
 #include <arpa/inet.h>
 #include <string.h>
 
-// #define DEBUG
+//#define DEBUG_B1
 #define DEBUG_SEND
+//#define DEBUG_SEND_1
 // #define DEBUG_1
 // #define DEBUG_XDP
 
-#define MAX_TARGETS 64
+#define MAX_TARGETS 10
 #define MAX_SIZE 99
 #define MTU 1500
 #define MAX_PAYLOAD 1000
@@ -51,9 +52,9 @@ struct targets
 struct
 {
 	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, __u32);
+	__type(key, __u16);
 	__type(value, struct targets);
-	__uint(max_entries, 1);
+	__uint(max_entries, 1024);
 } targets_map SEC(".maps"); // map for targets
 
 struct 
@@ -86,16 +87,40 @@ static __always_inline int type_checker(const char *payload)
 		return -1;
 	} else {
 		if ( payload[2] == 'T' && payload[5] == 'e' && payload[7] == ':') {
-			if (payload[8] == '0'){
-				return 0;
-			} else if (payload[7] == '1'){
+			if (payload[8] == '1'){
 				return 1;
-			} else if (payload[7] >= '1'){
+			} else if (payload[8] == '2'){
 				return 2;
+			} else if (payload[8] == '3'){
+				return 3;
 			}
 		}
 	}
 	return -1;
+}
+
+static __always_inline __u16 mapkey_checker(const char *payload)
+{
+	if (payload[21] != 'M' || payload[23] != 'p' || payload[26] != 'y')
+	{
+		return 1;
+	}
+
+	// Extract the four digits from the payload
+	int hundreds = payload[29] - '0';
+	int tens = payload[30] - '0';
+	int ones = payload[31] - '0';
+
+	// Convert to an actual number
+	return hundreds * 100 + tens * 10 + ones;
+}
+
+static inline void ip_to_bytes(__u32 ip_addr, __u8 *byte1, __u8 *byte2, __u8 *byte3, __u8 *byte4)
+{
+	*byte1 = (ip_addr & 0xFF000000) >> 24;
+	*byte2 = (ip_addr & 0x00FF0000) >> 16;
+	*byte3 = (ip_addr & 0x0000FF00) >> 8;
+	*byte4 = ip_addr & 0x000000FF;
 }
 
 SEC("classifier")
@@ -131,7 +156,7 @@ int fastbroadcast(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	if (payload + 30 >= data_end)
+	if (payload + 40 >= data_end)
 	{
 #ifdef DEBUG
 		bpf_printk("[fastbroad_prog] type_str + 5 >= data_end\n");
@@ -147,7 +172,7 @@ int fastbroadcast(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	if (type_checker(payload) != 0)
+	if (type_checker(payload) != 1)
 	{
 		// Valid packet but not broadcast packet
 #ifdef DEBUG
@@ -156,40 +181,55 @@ int fastbroadcast(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	__u32 ip_src = ip->saddr;
-	struct targets *tgt_list = bpf_map_lookup_elem(&targets_map, &ip_src);
+
+	__u16 key = mapkey_checker(payload);
+	if(key == 1){
+#ifdef DEBUG_B1
+		if (payload+50 > data_end) return TC_ACT_OK;
+		bpf_printk("[fastbroad_prog] key == 1, type=%d", type_checker(payload));
+		for (int i = 21; i<32; i++){
+			bpf_printk("%c", payload[i]);
+		}
+#endif
+		return TC_ACT_OK;
+	}
+	struct targets *tgt_list = bpf_map_lookup_elem(&targets_map, &key);
 	if (!tgt_list)
 	{
-		//bpf_printk("[fastbroad_prog] No target list found for %u\n", ip_src);
-		//bpf_printk("[fastbroad_prog] dest ip %u\n", ip->daddr);
+#ifdef DEBUG_SEND
+		__u8 b1, b2, b3, b4;
+		__u8 c1, c2, c3, c4;
+		ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+		ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
+		bpf_printk("[fastbroad_prog] No target list found before clone packet key=%d, from %u.%u.%u.%u ->  %u.%u.%u.%u \n", key, b3, b2, b1, c4, c3, c2, c1);
+#endif
 		return TC_ACT_OK;
 	}
 
+
+	/* Clone packet if curr < max_count */
+
 	char nxt;
 	u16 curr = payload[18];
-#ifdef DEBUG_SEND
-	bpf_printk("Count: %c%c%c%c\n", payload[16], payload[17], payload[18], payload[19]);
-#endif
+	char curr_char = payload[18];
 	if (curr < tgt_list->max_count)
 	{
 		nxt = payload[18] + 1;
 		payload[18] = nxt;
 #ifdef DEBUG_SEND
-		__u16 udp_total_len = ntohs(udp->len);
-		__u16 udp_payload_len = udp_total_len - sizeof(struct udphdr);
-		bpf_printk("[fastbroad_prog] clone packet, payload size: %d, max_count: %d\n", udp_payload_len, tgt_list->max_count);
+		//__u16 udp_total_len = ntohs(udp->len);
+		//__u16 udp_payload_len = udp_total_len - sizeof(struct udphdr);
+		//bpf_printk("[fastbroad_prog] clone packet, payload size: %d, max_count: %d\n", udp_payload_len, tgt_list->max_count);
 
 		int res = bpf_clone_redirect(skb, skb->ifindex, 0);
+		bpf_printk("[fastbroad_prog] clone packet, res: %d, curr: %d, max: %d\n", res, curr - '0', tgt_list->max_count - '0');
 #else
 		bpf_clone_redirect(skb, skb->ifindex, 0);
 #endif
 	}
-	else
-	{
-		//bpf_printk("[fastbroad_prog] no clone curr >= tgt_list->max_count, %d\n", curr);
-	}
 
-	// keep handle packet data
+
+	/* bpf_redirect may change the content of skb, so we need to re-initialize */
 	data_end = (void *)(long)skb->data_end;
 	data = (void *)(long)skb->data;
 	eth = data;
@@ -200,40 +240,70 @@ int fastbroadcast(struct __sk_buff *skb)
 	if (payload + sizeof(__u64) > data_end)
 		return TC_ACT_OK;
 
-	if (payload + 30 >= data_end)
+	if (payload + 45 >= data_end)
 	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] TC_ACT_SHOT (type_str + 5 >= data_end)\n");
+#ifdef DEBUG_SEND
+		bpf_printk("[fastbroad_prog] TC_ACT_SHOT (type_str + 45 >= data_end)\n");
 #endif
 		return TC_ACT_SHOT;
 	}
 
 	if (payload > data_end)
 	{
-#ifdef DEBUG
+#ifdef DEBUG_SEND
 		bpf_printk("[fastbroad_prog] TC_ACT_SHOT (payload > data_end)\n");
 #endif
 		return TC_ACT_SHOT;
 	}
 
-	int num = tgt_list->max_count - curr;
+	/* DEBUG lookup element after clone packet.*/
 
-#ifdef DEBUG
-	bpf_printk("[fastbroad_prog] egress packet: num:%d, payload[18]: %d, %c, max_count:%d\n", num, payload[18], payload[18], tgt_list->max_count);
+// 	key = mapkey_checker(payload);
+// 	if (key == 0)
+// 	{
+// #ifdef DEBUG_SEND
+// 		bpf_printk("[fastbroad_prog] key == 0\n");
+// #endif
+// 		return TC_ACT_OK;
+// 	}
+// 	tgt_list = bpf_map_lookup_elem(&targets_map, &key);
+// 	if (!tgt_list)
+// 	{
+// #ifdef DEBUG_SEND
+// 		__u8 b1, b2, b3, b4;
+// 		__u8 c1, c2, c3, c4;
+// 		ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+// 		ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
+// 		bpf_printk("[fastbroad_prog] No target list found after clone packet key=%d, from %u.%u.%u.%u ->  %u.%u.%u.%u \n", key, b4, b3, b2, b1, c4, c3, c2, c1);
+// #endif
+// 		return TC_ACT_OK;
+// 	}
+
+	if (tgt_list->max_count - '0' < tgt_list->max_count - curr){
+#ifdef DEBUG_SEND
+		bpf_printk("[fastbroad_prog] TC_ACT_SHOT (Counting error)\n");
+#endif
+		return TC_ACT_SHOT;
+	}
+	int num = (tgt_list->max_count - '0') - (tgt_list->max_count - curr);
+
+#ifdef DEBUG_SEND
+	bpf_printk("[fastbroad_prog] egress packet: num:%d, curr: %d, max_count:%d\n", num, payload[18] - '0', tgt_list->max_count - '0');
 #endif
 
 	if (num < 0 || num >= MAX_TARGETS)
 	{
-#ifdef DEBUG
+#ifdef DEBUG_SEND
 		bpf_printk("[fastbroad_prog] TC_ACT_SHOT (num<0 or num>=MAX_TARGETS)\n");
 #endif
 		return TC_ACT_SHOT;
 	}
 
-	if(udp->dest == htons(tgt_list->target_list[num].port) && ip->daddr == tgt_list->target_list[num].ip){
-		udp->dest == htons(111111);
+	if (tgt_list->target_list[num].ip == 0 || tgt_list->target_list[num].port == 0){
 #ifdef DEBUG_SEND
-		bpf_printk("same port or ip\n");
+		__u8 b1, b2, b3, b4;
+		ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+		bpf_printk("ERROR key=%d, max=%d, num=%d, ip:%u.%u.%u.%u\n", key, tgt_list->max_count-'0', num, b4, b3, b2, b1);
 #endif
 		return TC_ACT_OK;
 	}
@@ -245,7 +315,12 @@ int fastbroadcast(struct __sk_buff *skb)
 	// memcpy(eth->h_dest, tgt_list->target_list[num].mac, ETH_ALEN);
 
 #ifdef DEBUG_SEND
-	bpf_printk("[fastbroad_prog] egress packet acceptd, info: port:%d, ip:%d, mac:%s\n", udp->dest, ip->daddr, eth->h_dest);
+	__u8 b1, b2, b3, b4;
+	__u8 c1, c2, c3, c4;
+	ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+	ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
+
+	bpf_printk("[fastbroad_prog] egress packet acceptd, info: key=%d, max=%d, num=%d, from:%u.%u.%u.%u -> %u.%u.%u.%u \n", key, tgt_list->max_count - '0', num, b4,b3,b2,b1, c4,c3,c2,c1);
 #endif
 
 	return TC_ACT_OK;
@@ -336,13 +411,13 @@ int fastdrop(struct xdp_md *ctx)
 		return XDP_PASS;
 	}
 
-	if (*update_time == value)
-	{
-#ifdef DEBUG_XDP
-		bpf_printk("[fastdrop_prog] update_time == value drop\n");
-#endif
-		return XDP_DROP;
-	}
+// 	if (*update_time == value)
+// 	{
+// #ifdef DEBUG_XDP
+// 		bpf_printk("[fastdrop_prog] update_time == value drop\n");
+// #endif
+// 		return XDP_DROP;
+// 	}
 
 	return XDP_PASS;
 }

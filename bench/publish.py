@@ -16,7 +16,7 @@ NODES = [
     "http://192.168.3.20:8000"
 ]
 
-def random_metadata_string(length=20):
+def random_metadata_string(length=200):
     """Generate a random string of fixed length."""
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
@@ -30,11 +30,11 @@ def main():
     end_time = time.time() + 15*60  # Set end time to 15 minutes from now
 
     while time.time() < end_time:
-        for _ in range(150):
+        for _ in range(150000):
             node = random.choice(NODES)  # Choose a random node for each update
             metadata = random_metadata_string()
             send_metadata_update(node, metadata)
-            time.sleep(1/150 * 60)  # Spread out the 150 updates over one minute
+            time.sleep(1/150000 * 60)  # Spread out the 150 updates over one minute
 
 if __name__ == "__main__":
     main()

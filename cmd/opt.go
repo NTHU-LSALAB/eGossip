@@ -67,6 +67,9 @@ func (nodeList *NodeList) New(localNode Node) {
 	}
 	nodeList.metadata.Store(md) // Initialize metadata information
 
+	// Store atomic counter for bpf map key
+	nodeList.Counter = NewAtomicCounter()
+
 	// Load bpf objects
 }
 
@@ -161,16 +164,10 @@ func (nodeList *NodeList) Get() []Node {
 	var nodes []Node
 	// Traverse all key-value pairs in sync.Map
 	nodeList.nodes.Range(func(k, v interface{}) bool {
-		// If this node has not been updated for a while
+		//If this node has not been updated for a while
 		// if v.(int64)+nodeList.Timeout < time.Now().Unix() {
 		// 	nodeList.nodes.Delete(k)
 		// 	nodeList.println("[[Timeout]:", k, "has been deleted]")
-		// } else {
-		// 	nodes = append(nodes, k.(Node))
-		// }
-		// if k.(Node).LinkName == "" {
-		// 	nodeList.println("[Error]:", "LinkName is empty", k.(Node))
-		// 	// nodeList.nodes.Delete(k)
 		// } else {
 		nodes = append(nodes, k.(Node))
 		// }
@@ -220,8 +217,7 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 
 		// Set the packet as metadata update packet
 		Metadata: md,
-		Type:     1,
-		//IsUpdate: true,
+		IsUpdate: true,
 
 		SecretKey: nodeList.SecretKey,
 	}

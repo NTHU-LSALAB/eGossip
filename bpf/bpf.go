@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	MAX_TARGETS = 64
+	MAX_TARGETS = 10
 )
 
 type TargetInfoInterface interface {
@@ -121,8 +121,9 @@ func AttachXDP(BpfObjs *BpfObjects, linkname string) link.Link {
 	return l
 }
 
-func TcPushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {
+func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets sync.Map) error {
 	mapRef := BpfObjs.objs.TargetsMap
+	//fmt.Println(mapRef.Info())
 	var value bpfTargets
 
 	var targetCount int
@@ -157,8 +158,9 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint32, targets sync.Map) error {
 		i++
 		return true
 	})
+	//fmt.Println("count", i, targetCount)
 
-	fmt.Println("BC value", value)
+	//fmt.Println("BC value", value)
 
 	if err := mapRef.Put(key, value); err != nil {
 		return err

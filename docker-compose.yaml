@@ -2,47 +2,83 @@ version: '3'
 services:
   gossip_service1:
     build: .
-    command: ["xdp-gossip", "--name", "server1" ,"--link", "eth0", "--proto", "XDP"]
-    ports:
-      - "8081:8080/udp"
-      - "8001:8000/tcp"
+    command: ["xdp-gossip", "--name", "server1" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
     privileged: true
     networks:
       gossip_network:
         ipv4_address: 192.168.3.11
 
-  # gossip_service2:
-  #   build: .
-  #   command: ["xdp-gossip", "--name", "server2" ,"--link", "eth0", "--proto", "XDP"]
-  #   ports:
-  #     - "8082:8080/udp"
-  #     - "8002:8000/tcp"
-  #   privileged: true
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.12
+  gossip_service2:
+    build: .
+    command: ["xdp-gossip", "--name", "server2" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    privileged: true
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.12
 
-  # gossip_service3:
-  #   build: .
-  #   command: ["xdp-gossip", "--name", "server3" ,"--link", "eth0", "--proto", "XDP"]
-  #   ports:
-  #     - "8083:8080/udp"
-  #     - "8003:8000/tcp"
-  #   privileged: true
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.13
+  gossip_service3:
+    build: .
+    command: ["xdp-gossip", "--name", "server3" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    privileged: true
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.13
 
-  # gossip_service4:
-  #   build: .
-  #   command: ["xdp-gossip", "--name", "server4" ,"--link", "eth0", "--proto", "XDP"]
-  #   ports:
-  #     - "8084:8080/udp"
-  #     - "8004:8000/tcp"
-  #   privileged: true
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.14
+  gossip_service4:
+    build: .
+    command: ["xdp-gossip", "--name", "server4" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    privileged: true
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.14
+
+  gossip_service5:
+    build: .
+    command: ["xdp-gossip", "--name", "server5" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    privileged: true
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.15
+
+  gossip_service6:
+    build: .
+    command: ["xdp-gossip", "--name", "server6" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    privileged: true
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.16
+
+  gossip_service7:
+    build: .
+    command: ["xdp-gossip", "--name", "server7" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    privileged: true
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.17
+
+  gossip_service8:
+    build: .
+    command: ["xdp-gossip", "--name", "server8" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    privileged: true
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.18
+
+  gossip_service9:
+    build: .
+    command: ["xdp-gossip", "--name", "server9" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    privileged: true
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.19
+
+  gossip_service10:
+    build: .
+    command: ["xdp-gossip", "--name", "server10" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    privileged: true
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.20
 
 
 networks:
