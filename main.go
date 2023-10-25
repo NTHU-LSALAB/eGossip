@@ -68,7 +68,7 @@ func startServer() {
 	nodeList := cmd.NodeList{
 		Protocol:  protocol, // The network protocol used to connect cluster nodes
 		SecretKey: "test_key",
-		IsPrint:   true,
+		IsPrint:   false,
 	}
 
 	if nodeList.Protocol == "XDP" {
@@ -79,8 +79,8 @@ func startServer() {
 
 		nodeList.Program = obj
 
-		l := cmd.ProgramHandler(linkName, obj)
-		defer l.Close()
+		cmd.ProgramHandler(linkName, obj)
+		//defer l.Close()
 	}
 
 	nodeList.New(cmd.Node{
