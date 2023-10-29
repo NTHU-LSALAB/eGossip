@@ -1,10 +1,10 @@
 #!/bin/bash
 
-cd ../ && docker-compose up -d --build
+# cd ../ && docker-compose up -d --build
 
-cd bench
+# cd bench
 
-sleep 5
+# sleep 5
 
 server_count=2
 for i in {12..20}
@@ -19,6 +19,10 @@ do
   #
   sleep 1
 done
+
+sleep 10
+
+python publish.py
 
 
 #sleep 900

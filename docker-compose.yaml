@@ -7,6 +7,11 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.11
+    deploy:      
+      resources:
+        limits:
+          cpus: '0'
+          memory: 512M
 
   gossip_service2:
     build: .
@@ -15,6 +20,11 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.12
+    deploy:      
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
 
   gossip_service3:
     build: .
@@ -23,6 +33,11 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.13
+    deploy:      
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
 
   gossip_service4:
     build: .
@@ -31,6 +46,11 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.14
+    deploy:      
+      resources:
+        limits:
+          cpus: '3'
+          memory: 512M
 
   gossip_service5:
     build: .
@@ -39,7 +59,12 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.15
-
+    deploy:      
+      resources:
+        limits:
+          cpus: '4'
+          memory: 512M
+  
   gossip_service6:
     build: .
     command: ["xdp-gossip", "--name", "server6" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
@@ -47,6 +72,11 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.16
+    deploy:      
+      resources:
+        limits:
+          cpus: '5'
+          memory: 512M
 
   gossip_service7:
     build: .
@@ -55,6 +85,11 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.17
+    deploy:      
+      resources:
+        limits:
+          cpus: '6'
+          memory: 512M
 
   gossip_service8:
     build: .
@@ -63,6 +98,11 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.18
+    deploy:      
+      resources:
+        limits:
+          cpus: '7'
+          memory: 512M
 
   gossip_service9:
     build: .
@@ -71,6 +111,11 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.19
+    deploy:      
+      resources:
+        limits:
+          cpus: '8'
+          memory: 512M
 
   gossip_service10:
     build: .
@@ -79,7 +124,11 @@ services:
     networks:
       gossip_network:
         ipv4_address: 192.168.3.20
-
+    deploy:      
+      resources:
+        limits:
+          cpus: '9'
+          memory: 512M
 
 networks:
   gossip_network:

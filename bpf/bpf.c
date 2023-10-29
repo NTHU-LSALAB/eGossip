@@ -2,7 +2,6 @@
 
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
-// #include <linux/in.h>
 #include <linux/udp.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
@@ -13,42 +12,62 @@
 #include <arpa/inet.h>
 #include <string.h>
 
+
+/* Debug flag*/
 //#define DEBUG_B1
 #define DEBUG_SEND
-//#define DEBUG_SEND_1
-// #define DEBUG_1
-// #define DEBUG_XDP
 
+/* Contorl definition */
 #define MAX_TARGETS 10
-#define MAX_SIZE 99
+#define MAX_SIZE 200
 #define MTU 1500
 #define MAX_PAYLOAD 1000
 #define MAX_INT64_LEN 20
-// static volatile unsigned const short PORT;
-
-// Ensure map references are available.
-/*
-				These will be initiated from go and
-				referenced in the end BPF opcodes by file descriptor
-*/
 
 typedef __u64 u64;
 typedef __u32 u32;
 typedef __u16 u16;
 
-struct target_info
+/* Node info struct for store node information. */
+struct node_info
 {
 	__u32 ip;
 	__u16 port;
 	char mac[ETH_ALEN];
 };
 
+/* Broadcast target struct, including node info and current count. */
 struct targets
 {
-	struct target_info target_list[MAX_TARGETS];
+	struct node_info target_list[MAX_TARGETS];
 	__u16 max_count;
 };
 
+/* Metadat struct for store latest metadata. */
+struct metadata
+{
+	char metadata[MAX_SIZE];
+	__u64 update_time;
+};
+
+
+/* Message struct for commucation between kerenlspace and userspace. */
+struct message
+{
+	char type;
+	struct node_info node;
+};
+
+/* BPF_MAP_TYPE_HASH for nodelist */
+struct
+{
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u16);
+	__type(value, struct targets);
+	__uint(max_entries, 1024);
+} nodelist_map SEC(".maps"); 
+
+/* BPF_MAP_TYPE_HASH for metadata */
 struct
 {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -57,14 +76,7 @@ struct
 	__uint(max_entries, 1024);
 } targets_map SEC(".maps"); // map for targets
 
-struct 
-{
-	__uint(type, BPF_MAP_TYPE_ARRAY);
-	__type(key, __u32);
-	__type(value, int64_t);
-	__uint(max_entries, 1);
-} metadata_map SEC(".maps"); // map for metadata
-
+/* Compute ip checksum for cloned packet before TC_ACT_OK. */
 static __always_inline __u16 compute_ip_checksum(struct iphdr *ip)
 {
 	__u32 csum = 0;
@@ -80,6 +92,7 @@ static __always_inline __u16 compute_ip_checksum(struct iphdr *ip)
 	return ~((csum & 0xffff) + (csum >> 16));
 }
 
+/* Type handler for checking packet type. */
 static __always_inline int type_checker(const char *payload)
 {
 	// Search for the key in the payload
@@ -99,6 +112,7 @@ static __always_inline int type_checker(const char *payload)
 	return -1;
 }
 
+/* Map key handler for checking broadcast target map key. */
 static __always_inline __u16 mapkey_checker(const char *payload)
 {
 	if (payload[21] != 'M' || payload[23] != 'p' || payload[26] != 'y')
@@ -115,6 +129,7 @@ static __always_inline __u16 mapkey_checker(const char *payload)
 	return hundreds * 100 + tens * 10 + ones;
 }
 
+/* Debug function for convet u32 type ip variable into readable number. */
 static inline void ip_to_bytes(__u32 ip_addr, __u8 *byte1, __u8 *byte2, __u8 *byte3, __u8 *byte4)
 {
 	*byte1 = (ip_addr & 0xFF000000) >> 24;
@@ -123,6 +138,7 @@ static inline void ip_to_bytes(__u32 ip_addr, __u8 *byte1, __u8 *byte2, __u8 *by
 	*byte4 = ip_addr & 0x000000FF;
 }
 
+/* ebpf TC Hook for Fastbroadcast. */
 SEC("classifier")
 int fastbroadcast(struct __sk_buff *skb)
 {
@@ -148,27 +164,15 @@ int fastbroadcast(struct __sk_buff *skb)
 
 	struct udphdr *udp = data + l4_off;
 	char *payload = data + l4_off + sizeof(struct udphdr);
-	if (payload + sizeof(__u64) > data_end)
-	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] payload + sizeof(__u64) > data_end\n");
-#endif
+	if (payload + sizeof(__u64) > data_end) {
 		return TC_ACT_OK;
 	}
 
-	if (payload + 40 >= data_end)
-	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] type_str + 5 >= data_end\n");
-#endif
+	if (payload + 40 >= data_end){
 		return TC_ACT_OK;
 	}
 
-	if (payload > data_end)
-	{
-#ifdef DEBUG
-		bpf_printk("[fastbroad_prog] payload > data_end\n");
-#endif
+	if (payload > data_end){
 		return TC_ACT_OK;
 	}
 
@@ -255,29 +259,6 @@ int fastbroadcast(struct __sk_buff *skb)
 #endif
 		return TC_ACT_SHOT;
 	}
-
-	/* DEBUG lookup element after clone packet.*/
-
-// 	key = mapkey_checker(payload);
-// 	if (key == 0)
-// 	{
-// #ifdef DEBUG_SEND
-// 		bpf_printk("[fastbroad_prog] key == 0\n");
-// #endif
-// 		return TC_ACT_OK;
-// 	}
-// 	tgt_list = bpf_map_lookup_elem(&targets_map, &key);
-// 	if (!tgt_list)
-// 	{
-// #ifdef DEBUG_SEND
-// 		__u8 b1, b2, b3, b4;
-// 		__u8 c1, c2, c3, c4;
-// 		ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
-// 		ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
-// 		bpf_printk("[fastbroad_prog] No target list found after clone packet key=%d, from %u.%u.%u.%u ->  %u.%u.%u.%u \n", key, b4, b3, b2, b1, c4, c3, c2, c1);
-// #endif
-// 		return TC_ACT_OK;
-// 	}
 
 	if (tgt_list->max_count - '0' < tgt_list->max_count - curr){
 #ifdef DEBUG_SEND
@@ -375,49 +356,13 @@ int fastdrop(struct xdp_md *ctx)
 	if(payload + 40 > data_end){
 		return XDP_DROP;
 	}
-	__u8 *cursor = payload + 40;
-	if (cursor + 2 > data_end){ 
-		return XDP_DROP;
-	}
-	if (*cursor != ':')
-	{
-		return XDP_DROP; // no start 
-	}
-	cursor++;
 
-	int64_t value = 0;
-#pragma clang loop unroll(full)
-	for (int i = 0; i < MAX_INT64_LEN; i++) {
-		if (cursor + (i + 1) > data_end){
-			return XDP_DROP;			
-		}
-
-		if (*cursor < '0' || *cursor > '9'){
-			return XDP_DROP; // not a number
-		}
-
-		if(*(cursor+i) == ','){
-			break;
-		}
-		//bpf_printk("[fastdrop_prog]i: %d cursor: %c\n", i, *(cursor+i));
-		value = value * 10 + (*(cursor+i) - '0');
+	if (type_checker(payload) < 2) {
+		return XDP_PASS; //Broadcast packet, allow it
 	}
 
-	// Search for the key in the payload
-	__u32 key = 0;
-	int64_t *update_time = bpf_map_lookup_elem(&metadata_map, &key);
-	if (!update_time)
-	{
-		return XDP_PASS;
-	}
+	
 
-// 	if (*update_time == value)
-// 	{
-// #ifdef DEBUG_XDP
-// 		bpf_printk("[fastdrop_prog] update_time == value drop\n");
-// #endif
-// 		return XDP_DROP;
-// 	}
 
 	return XDP_PASS;
 }
