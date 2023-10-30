@@ -22,11 +22,16 @@
 #define MAX_SIZE 200
 #define MTU 1500
 #define MAX_PAYLOAD 1000
+#define MAX_METADATA 256
 #define MAX_INT64_LEN 20
+#define MAX_SOCKS 64
 
 typedef __u64 u64;
 typedef __u32 u32;
 typedef __u16 u16;
+
+/* PORT value by definition */
+static volatile unsigned const short PORT;
 
 /* Node info struct for store node information. */
 struct node_info {
@@ -43,7 +48,7 @@ struct targets {
 
 /* Metadat struct for store latest metadata. */
 struct metadata {
-	char metadata[MAX_SIZE];
+	char metadata[MAX_METADATA];
 	int64_t update_time;
 };
 
@@ -77,9 +82,24 @@ struct {
 	__uint(max_entries, 1);
 } metadata_map SEC(".maps"); // map for metadata
 
+/* BPF_MAP_TYPE_XSKMAP for xsk_map */
+struct {
+	__uint(type, BPF_MAP_TYPE_XSKMAP);
+	__type(key, int);
+	__type(value, int);
+	__uint(max_entries, MAX_SOCKS);
+} xsks_map SEC(".maps"); // map for xsk sockets
+
+/* BPF_MAP_TYPE_ARRAY for qidconf */
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, int);
+	__type(value, int);
+	__uint(max_entries, MAX_SOCKS);
+} qidconf_map SEC(".maps"); // map for qidconf
+
 /* Compute ip checksum for cloned packet before TC_ACT_OK. */
-static __always_inline __u16 compute_ip_checksum(struct iphdr *ip)
-{
+static __always_inline __u16 compute_ip_checksum(struct iphdr *ip) {
 	__u32 csum = 0;
 	__u16 *next_ip_u16 = (__u16 *)ip;
 
@@ -93,8 +113,7 @@ static __always_inline __u16 compute_ip_checksum(struct iphdr *ip)
 }
 
 /* Type handler for checking packet type. */
-static __always_inline int type_checker(const char *payload)
-{
+static __always_inline int type_handler(const char *payload) {
 	// Search for the key in the payload
 	if ( payload[0] != '{' ) {
 		return -1;
@@ -113,8 +132,7 @@ static __always_inline int type_checker(const char *payload)
 }
 
 /* Map key handler for checking broadcast target map key. */
-static __always_inline __u16 mapkey_checker(const char *payload)
-{
+static __always_inline __u16 mapkey_handler(const char *payload) {
 	if (payload[21] != 'M' || payload[23] != 'p' || payload[26] != 'y') {
 		return 1;
 	}
@@ -128,19 +146,54 @@ static __always_inline __u16 mapkey_checker(const char *payload)
 	return hundreds * 100 + tens * 10 + ones;
 }
 
+static __always_inline int64_t metadata_handler(const char *payload, __u8 *cursor, void *data_end){
+	int64_t value = 0;
+#pragma clang loop unroll(full)
+	for (int i = 0; i < MAX_INT64_LEN; i++) {
+		if (cursor + (i + 1) > data_end) {
+			return XDP_DROP;
+		}
+
+		if (*cursor < '0' || *cursor > '9') {
+			return XDP_DROP; // not a number
+		}
+
+		if (*(cursor + i) == ',') {
+			break;
+		}
+		// bpf_printk("[fastdrop_prog]i: %d cursor: %c\n", i, *(cursor+i));
+		value = value * 10 + (*(cursor + i) - '0');
+	}
+
+	return value;
+}
+
 /* Debug function for convet u32 type ip variable into readable number. */
-static inline void ip_to_bytes(__u32 ip_addr, __u8 *byte1, __u8 *byte2, __u8 *byte3, __u8 *byte4)
-{
+static inline void ip_to_bytes(__u32 ip_addr, __u8 *byte1, __u8 *byte2, __u8 *byte3, __u8 *byte4) {
 	*byte1 = (ip_addr & 0xFF000000) >> 24;
 	*byte2 = (ip_addr & 0x00FF0000) >> 16;
 	*byte3 = (ip_addr & 0x0000FF00) >> 8;
 	*byte4 = ip_addr & 0x000000FF;
 }
 
+/* Swap src mac to dst */
+static __always_inline void swap_src_dst_mac(void *data) {
+	unsigned short *p = data;
+	unsigned short dst[3];
+	dst[0] = p[0];
+	dst[1] = p[1];
+	dst[2] = p[2];
+	p[0] = p[3];
+	p[1] = p[4];
+	p[2] = p[5];
+	p[3] = dst[0];
+	p[4] = dst[1];
+	p[5] = dst[2];
+}
+
 /* ebpf TC Hook for Fastbroadcast. */
 SEC("classifier")
-int fastbroadcast(struct __sk_buff *skb)
-{
+int fastbroadcast(struct __sk_buff *skb) {
 	const int l3_off = ETH_HLEN;					  // IP header offset
 	const int l4_off = l3_off + sizeof(struct iphdr); // L4 header offset
 
@@ -173,11 +226,11 @@ int fastbroadcast(struct __sk_buff *skb)
 		return TC_ACT_OK;
 	}
 
-	if (type_checker(payload) != 1) {
+	if (type_handler(payload) != 1) {
 		return TC_ACT_OK; // Valid packet but not broadcast packet, allow it
 	}
 
-	__u16 key = mapkey_checker(payload);
+	__u16 key = mapkey_handler(payload);
 	if(key == 1) {
 #ifdef DEBUG_B1
 		if (payload+50 > data_end) return TC_ACT_OK;
@@ -188,6 +241,7 @@ int fastbroadcast(struct __sk_buff *skb)
 #endif
 		return TC_ACT_OK;
 	}
+	/* Lookup ebpf map */
 	struct targets *tgt_list = bpf_map_lookup_elem(&targets_map, &key);
 	if (!tgt_list) {
 #ifdef DEBUG_SEND
@@ -286,52 +340,47 @@ int fastbroadcast(struct __sk_buff *skb)
 	return TC_ACT_OK;
 }
 
+/* ebpf XDP Hook for Fastdrop. */
 SEC("xdp")
-int fastdrop(struct xdp_md *ctx)
-{
-	const int l3_off = ETH_HLEN;					  // IP header offset
-	const int l4_off = l3_off + sizeof(struct iphdr); // L4 header offset
+int xdp_sock_prog(struct xdp_md *ctx){
 
-	void *data_end = (void *)(long)ctx->data_end;
-	void *data = (void *)(long)ctx->data;
-	if (data_end < data + l4_off)
-		return XDP_PASS;
+	int index = ctx->rx_queue_index;
 
-	struct ethhdr *eth = data;
-	if (eth->h_proto != htons(ETH_P_IP)){
-		return XDP_PASS;
+	// A set entry here means that the correspnding queue_id
+	// has an active AF_XDP socket bound to it.
+	if (bpf_map_lookup_elem(&qidconf_map, &index)) {
+		// redirect packets to an xdp socket that match the given IPv4 or IPv6 protocol; pass all other packets to the kernel
+		void *data = (void *)(long)ctx->data;
+		void *data_end = (void *)(long)ctx->data_end;
+		struct ethhdr *eth = data;
+		__u16 h_proto = eth->h_proto;
+		if ((void *)eth + sizeof(*eth) > data_end)
+			goto out;
+
+		if (bpf_htons(h_proto) != ETH_P_IP)
+			goto out;
+
+		struct iphdr *ip = data + sizeof(*eth);
+		if ((void *)ip + sizeof(*ip) > data_end)
+			goto out;
+
+		if (ip->protocol != IPPROTO_UDP) // Only UDP packets
+			goto out;
+
+		struct udphdr *udp = (void *)ip + sizeof(*ip);
+		if ((void *)udp + sizeof(*udp) > data_end)
+			goto out;
+
+		if (udp->dest != bpf_htons(PORT))
+			goto out;
+
+		return bpf_redirect_map(&xsks_map, index, 0);
 	}
 
-	if (eth->h_proto != htons(ETH_P_IP)){
-		return XDP_PASS; // Non-IP packet, allow it
-	}
+drop:
+	return XDP_DROP;
 
-	struct iphdr *ip = (struct iphdr *)(eth + 1);
-	if (ip->protocol != IPPROTO_UDP){
-		return XDP_PASS; // Non-UDP packet, allow it
-	}
-
-	struct udphdr *udp = (struct udphdr *)(ip + 1);
-	if (udp + 10 > data_end){
-		return XDP_DROP; // Malformed packet
-	}
-
-	unsigned char *payload = (unsigned char *)(udp + 1);
-	if (payload + 1 > data_end){
-		return XDP_DROP; // Malformed packet
-	}
-
-	if(payload + 40 > data_end){
-		return XDP_DROP;
-	}
-
-	if (type_checker(payload) < 2) {
-		return XDP_PASS; //Broadcast packet, allow it
-	}
-
-
-
-
+out:
 	return XDP_PASS;
 }
 

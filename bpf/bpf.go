@@ -3,14 +3,12 @@ package bpf
 import (
 	"errors"
 	"fmt"
-	"log"
-	"net"
 	"os"
 	"sync"
 
+	"github.com/asavie/xdp"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -104,21 +102,20 @@ func RemoveTC(ifName string, tcDir uint32) error {
 	return nil
 }
 
-func AttachXDP(BpfObjs *BpfObjects, linkname string) link.Link {
-	iface, err := net.InterfaceByName(linkname)
-	if err != nil {
-		log.Fatalf("lookup network iface %q: %s", linkname, err)
+func AttachXDP(BpfObjs *BpfObjects, Ifindex int) (*xdp.Program, error) {
+	// Create XDP program
+	p := &xdp.Program{Program: BpfObjs.objs.bpfPrograms.XdpSockProg,
+		Queues:  BpfObjs.objs.bpfMaps.QidconfMap,
+		Sockets: BpfObjs.objs.bpfMaps.XsksMap}
+
+	// Attach XDP program to interface
+	if err := p.Attach(Ifindex); err != nil {
+		fmt.Printf("error: failed to attach xdp program to interface: %v\n", err)
+		return nil, err
 	}
 
-	l, err := link.AttachXDP(link.XDPOptions{
-		Program:   BpfObjs.objs.bpfPrograms.Fastdrop,
-		Interface: iface.Index,
-	})
-	if err != nil {
-		log.Fatalf("could not attach XDP program: %s", err)
-	}
 	//log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
-	return l
+	return p, nil
 }
 
 func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets sync.Map) error {
@@ -168,11 +165,11 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets sync.Map) error {
 	return nil
 }
 
-func XdpPushToMap(BpfObjs *BpfObjects, key uint32, value int64) error {
-	mapRef := BpfObjs.objs.MetadataMap
+// func XdpPushToMap(BpfObjs *BpfObjects, key uint32, value int64) error {
+// 	mapRef := BpfObjs.objs.MetadataMap
 
-	if err := mapRef.Put(key, value); err != nil {
-		return err
-	}
-	return nil
-}
+// 	if err := mapRef.Put(key, value); err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
