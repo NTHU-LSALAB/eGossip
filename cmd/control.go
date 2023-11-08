@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+
+	common "github.com/kerwenwwer/xdp-gossip/common"
 )
 
 /*
@@ -128,7 +130,7 @@ func (nl *NodeList) SetNodeHandler() http.HandlerFunc {
 
 		//fmt.Printf("Request Body: %s\n", string(body))
 
-		var node Node
+		var node common.Node
 		err = json.Unmarshal(body, &node)
 		if err != nil {
 			http.Error(w, "Can't parse JSON", http.StatusBadRequest)

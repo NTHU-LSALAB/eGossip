@@ -3,12 +3,13 @@ package bpf
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
-	"sync"
 
 	"github.com/asavie/xdp"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/ebpf"
+	common "github.com/kerwenwwer/xdp-gossip/common"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -118,16 +119,16 @@ func AttachXDP(BpfObjs *BpfObjects, Ifindex int) (*xdp.Program, error) {
 	return p, nil
 }
 
-func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets sync.Map) error {
+func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets []common.Node) error {
 	mapRef := BpfObjs.objs.TargetsMap
-	//fmt.Println(mapRef.Info())
 	var value bpfTargets
 
 	var targetCount int
-	targets.Range(func(_, _ interface{}) bool {
-		targetCount++
-		return true
-	})
+	for _, v := range targets {
+		if v.Addr != "" {
+			targetCount++
+		}
+	}
 	//fmt.Println("targetCount", targetCount)
 
 	if targetCount > MAX_TARGETS {
@@ -137,27 +138,28 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets sync.Map) error {
 	value.MaxCount = uint16('0' + targetCount - 1)
 	//fmt.Println("value.MaxCount", value.MaxCount)
 
+	fmt.Println("targets: ", targets)
+
 	i := 0
-	targets.Range(func(key, val interface{}) bool {
+
+	for _, v := range targets {
 		if i >= MAX_TARGETS {
-			return false
+			log.Fatalf("too many targets: %d", i)
+			break
 		}
 
-		target, ok := key.(TargetInfoInterface)
-		if !ok {
-			// handle the error, maybe return
-			return false
-		}
-		value.TargetList[i].Ip = target.GetIp()
-		value.TargetList[i].Port = target.GetPort()
-		value.TargetList[i].Mac = target.GetMac()
+		fmt.Println(v)
+
+		value.TargetList[i].Ip = common.IpToUint32(v.Addr)
+		value.TargetList[i].Port = uint16(v.Port)
+		value.TargetList[i].Mac = common.MacStringToInt8Array(v.Mac)
 
 		i++
-		return true
-	})
+	}
+
 	//fmt.Println("count", i, targetCount)
 
-	//fmt.Println("BC value", value)
+	fmt.Println("BC value", value)
 
 	if err := mapRef.Put(key, value); err != nil {
 		return err

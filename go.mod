@@ -3,6 +3,7 @@ module github.com/kerwenwwer/xdp-gossip
 go 1.19
 
 require (
+	github.com/asavie/xdp v0.3.3
 	github.com/cilium/cilium v1.14.1
 	github.com/cilium/ebpf v0.10.1-0.20230626090016-654491c8a500
 	github.com/spf13/cobra v1.7.0

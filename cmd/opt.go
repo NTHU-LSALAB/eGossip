@@ -4,11 +4,11 @@ import (
 	"strconv"
 	"time"
 
-	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
+	common "github.com/kerwenwwer/xdp-gossip/common"
 )
 
 // New initializes the local node list
-func (nodeList *NodeList) New(localNode Node) {
+func (nodeList *NodeList) New(localNode common.Node) {
 
 	// Addr default value: 0.0.0.0
 	if localNode.Addr == "" {
@@ -61,14 +61,14 @@ func (nodeList *NodeList) New(localNode Node) {
 	nodeList.status.Store(true)                        // Initialize node service status
 
 	// Set metadata information
-	md := metadata{
+	md := common.Metadata{
 		Data:   []byte(""), // Metadata content
 		Update: 0,          // Metadata update timestamp
 	}
 	nodeList.metadata.Store(md) // Initialize metadata information
 
 	// Store atomic counter for bpf map key
-	nodeList.Counter = NewAtomicCounter()
+	nodeList.Counter = common.NewAtomicCounter()
 
 	// Load bpf objects
 }
@@ -134,7 +134,7 @@ func (nodeList *NodeList) Start() {
 }
 
 // Set adds other nodes to the local node list
-func (nodeList *NodeList) Set(node Node) {
+func (nodeList *NodeList) Set(node common.Node) {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
@@ -152,7 +152,7 @@ func (nodeList *NodeList) Set(node Node) {
 }
 
 // Get retrieves the local node list
-func (nodeList *NodeList) Get() []Node {
+func (nodeList *NodeList) Get() []common.Node {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
@@ -161,7 +161,7 @@ func (nodeList *NodeList) Get() []Node {
 		return nil
 	}
 
-	var nodes []Node
+	var nodes []common.Node
 	// Traverse all key-value pairs in sync.Map
 	nodeList.nodes.Range(func(k, v interface{}) bool {
 		//If this node has not been updated for a while
@@ -169,7 +169,7 @@ func (nodeList *NodeList) Get() []Node {
 		// 	nodeList.nodes.Delete(k)
 		// 	nodeList.println("[[Timeout]:", k, "has been deleted]")
 		// } else {
-		nodes = append(nodes, k.(Node))
+		nodes = append(nodes, k.(common.Node))
 		// }
 		return true
 	})
@@ -195,23 +195,17 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 	nodeList.Set(nodeList.localNode)
 
 	// Set new metadata
-	md := metadata{
+	md := common.Metadata{
 		Data:   newMetadata,
 		Update: time.Now().UnixNano(), // Metadata update timestamps
+		Size:   len(newMetadata),      // Metadata size
 	}
 
 	// // Update local node metadata info
 	nodeList.metadata.Store(md)
 
-	if nodeList.Protocol == "XDP" {
-		program := nodeList.Program
-		if err := bpf.XdpPushToMap(program, uint32(0), md.Update); err != nil {
-			nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
-		}
-	}
-
 	// // Set packet
-	p := packet{
+	p := common.Packet{
 		Node:     nodeList.localNode,
 		Infected: infected,
 
@@ -223,11 +217,8 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 	}
 
 	// Broadcast packet in the cluster
-	if nodeList.Protocol == "XDP" {
-		fastBroadcast(nodeList, p)
-	} else {
-		broadcast(nodeList, p)
-	}
+	broadcast(nodeList, p)
+
 }
 
 // Read retrieves the metadata information from the local node list
@@ -240,5 +231,5 @@ func (nodeList *NodeList) Read() []byte {
 		return nil
 	}
 
-	return nodeList.metadata.Load().(metadata).Data
+	return nodeList.metadata.Load().(common.Metadata).Data
 }

@@ -9,25 +9,14 @@ import (
 
 	"github.com/kerwenwwer/xdp-gossip/bpf"
 	"github.com/kerwenwwer/xdp-gossip/cmd"
+	"github.com/kerwenwwer/xdp-gossip/common"
 	"github.com/spf13/cobra"
 )
 
 var nodeName string
 var linkName string
 var protocol string
-
-var rootCmd = &cobra.Command{
-	Use:   "server",
-	Short: "XDP Gossip Contorl Server",
-	Long:  `A HTTP server for XDP Gossip control plane.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		startServer()
-	},
-}
-
-func Execute() error {
-	return rootCmd.Execute()
-}
+var isServer bool
 
 func startServer() {
 	fmt.Printf("---------- Starting XDP Gossip node --------\n")
@@ -68,9 +57,10 @@ func startServer() {
 	nodeList := cmd.NodeList{
 		Protocol:  protocol, // The network protocol used to connect cluster nodes
 		SecretKey: "test_key",
-		IsPrint:   false,
+		IsPrint:   true,
 	}
 
+	/* Load BPF program */
 	if nodeList.Protocol == "XDP" {
 		obj, err := bpf.LoadObjects()
 		if err != nil {
@@ -79,13 +69,20 @@ func startServer() {
 
 		nodeList.Program = obj
 
-		cmd.ProgramHandler(linkName, obj)
-		//defer l.Close()
+		l, xsk := cmd.ProgramHandler(linkName, obj)
+		defer l.Close()
+		nodeList.Xsk = xsk
 	}
 
-	nodeList.New(cmd.Node{
+	mac_address, err := common.GetMACAddressByInterfaceName(linkName)
+	if err != nil {
+		log.Fatal("[[Control]: Get MAC address error. %v]", err)
+	}
+
+	nodeList.New(common.Node{
 		Addr:        address,
 		Port:        8000,
+		Mac:         mac_address,
 		Name:        nodeName,
 		LinkName:    linkName,
 		PrivateData: "test-data",
@@ -107,14 +104,81 @@ func startServer() {
 		log.Panicln("[[Control]: ListenAndServe: ", err)
 	}
 }
+
+func startClient() error {
+	// Code for starting UDP listener on port 8000
+	addr := net.UDPAddr{
+		Port: 8000,
+		IP:   net.ParseIP("0.0.0.0"),
+	}
+	conn, err := net.ListenUDP("udp", &addr)
+	if err != nil {
+		return fmt.Errorf("failed to start UDP listener: %v", err)
+	}
+	defer conn.Close()
+
+	log.Println("Client is listening on UDP port 8000")
+
+	// Buffer for reading incoming packets
+	buffer := make([]byte, 1024)
+	// Add code to handle incoming messages, etc.
+	for {
+		n, remoteAddr, err := conn.ReadFromUDP(buffer)
+		if err != nil {
+			log.Printf("Error reading from UDP: %v\n", err)
+			continue
+		}
+
+		// Print the received message
+		message := string(buffer[:n])
+
+		if message[8] == '1' {
+			log.Printf("Received %d bytes from %v: %s\n", n, remoteAddr, message)
+		}
+
+		// Add additional code to handle the message if necessary
+	}
+
+	return nil
+}
+
+var rootCmd = &cobra.Command{
+	Use:   "xdp-gossip",
+	Short: "XDP Gossip Application",
+	Long:  `This application runs either as an XDP Gossip server or client.`,
+}
+
+var serverCmd = &cobra.Command{
+	Use:   "server",
+	Short: "XDP Gossip Contorl Server",
+	Long:  `A HTTP server for XDP Gossip control plane.`,
+	Run: func(coCmd *cobra.Command, args []string) {
+		startServer()
+	},
+}
+
+var clientCmd = &cobra.Command{
+	Use:   "client",
+	Short: "XDP Gossip UDP Client",
+	Long:  `A client for testing XDP Gossip communication.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := startClient(); err != nil {
+			log.Fatalf("Error starting client: %v", err)
+		}
+	},
+}
+
 func init() {
-	rootCmd.Flags().StringVar(&nodeName, "name", "", "provide a node name")
-	rootCmd.Flags().StringVar(&linkName, "link", "eth0", "provide a link name")
-	rootCmd.Flags().StringVar(&protocol, "proto", "UDP", "provide a running mode")
+	rootCmd.AddCommand(serverCmd)
+	rootCmd.AddCommand(clientCmd)
+
+	serverCmd.Flags().StringVar(&nodeName, "name", "", "provide a node name")
+	serverCmd.Flags().StringVar(&linkName, "link", "eth0", "provide a link name")
+	serverCmd.Flags().StringVar(&protocol, "proto", "UDP", "provide a running mode")
 }
 
 func main() {
-	if err := Execute(); err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

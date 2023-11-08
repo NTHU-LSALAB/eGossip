@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
+	"net"
 	"strconv"
-	"sync"
 	"time"
 
 	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
+	common "github.com/kerwenwwer/xdp-gossip/common"
 )
 
 // Periodic heartbeat broadcast task
@@ -26,27 +27,18 @@ func task(nodeList *NodeList) {
 		nodeList.Set(nodeList.localNode)
 
 		// Set up the heartbeat data packet
-		p := packet{
+		p := common.Packet{
 			Node:      nodeList.localNode,
 			Infected:  infected,
 			SecretKey: nodeList.SecretKey,
 		}
 
 		// Broadcast the heartbeat data packet
-		//broadcast(nodeList, p)
-		//nodeList.println("Protocol:", nodeList.Protocol)
-		if nodeList.Protocol == "XDP" {
-			fastBroadcast(nodeList, p)
-		} else {
-			broadcast(nodeList, p)
-		}
+		broadcast(nodeList, p)
 
+		nodeList.println("[Print local nodeList]: ", nodeList.nodes)
 		// Initiate a data exchange request with a node in the cluster
 		swapRequest(nodeList)
-
-		// if nodeList.IsPrint {
-		// 	nodeList.println("[Listen]:", nodeList.ListenAddr+":"+strconv.Itoa(nodeList.localNode.Port), "/ [Node list]:", nodeList.Get())
-		// }
 
 		// Interval time
 		time.Sleep(time.Duration(nodeList.Cycle) * time.Second)
@@ -64,10 +56,20 @@ func consume(nodeList *NodeList, mq chan []byte) {
 	for {
 		// Retrieve message from the listen queue
 		bs := <-mq
-		var p packet
-		err := json.Unmarshal(bs, &p)
 
-		//nodeList.println(p.Node)
+		if nodeList.Protocol == "XDP" {
+			nodeList.println("SrcIP: ", net.IP(bs[26:30]).String(), ", SrcPort: ", int(bs[34])*256+int(bs[35]),
+				", DstIP: ", net.IP(bs[30:34]).String(), ", DstPort: ", int(bs[36])*256+int(bs[37]), "payload:", string(bs[42:]))
+
+			if net.IP(bs[30:34]).String() != nodeList.localNode.Addr {
+				log.Fatalf("[ERROR] DstIP is not local IP")
+			}
+
+			bs = bs[42:] // Only need payload
+		}
+
+		var p common.Packet
+		err := json.Unmarshal(bs, &p)
 
 		// If data parsing error
 		if err != nil {
@@ -87,14 +89,9 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		// If the packet is for metadata exchange between two nodes
 		if p.Type >= 2 {
 			// If the version of the metadata in the packet is newer than the local metadata
-			if p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
+			if p.Metadata.Update > nodeList.metadata.Load().(common.Metadata).Update {
 				// Update local node's stored metadata
 				nodeList.metadata.Store(p.Metadata)
-				// if nodeList.Protocol == "XDP" {
-				// 	if err := bpf.XdpPushToMap(nodeList.Program, uint32(0), p.Metadata.Update); err != nil {
-				// 		nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
-				// 	}
-				// }
 				// Skip, do not broadcast, do not respond to initiator
 
 				nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
@@ -102,16 +99,15 @@ func consume(nodeList *NodeList, mq chan []byte) {
 				continue
 			}
 			// If the packet's metadata version is older, this means the initiator's metadata version needs to be updated
-			if p.Metadata.Update < nodeList.metadata.Load().(metadata).Update {
+			if p.Metadata.Update < nodeList.metadata.Load().(common.Metadata).Update {
 				// If it is a swap request from the initiator
-				fmt.Println("This is a swap request from the initiator")
 				if p.Type == 2 {
 					// Respond to the initiator, send the latest metadata to the initiator, complete the swap process
 					swapResponse(nodeList, p.Node)
 				}
 			}
 			// Skip, do not broadcast
-			if p.Metadata.Update == nodeList.metadata.Load().(metadata).Update {
+			if p.Metadata.Update == nodeList.metadata.Load().(common.Metadata).Update {
 				nodeList.println("Metadat is same, skip")
 			}
 			continue
@@ -124,36 +120,31 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		nodeList.Set(node)
 
 		// If the packet is a metadata update and the metadata version in the packet is newer than the local metadata
-		if p.IsUpdate && p.Metadata.Update > nodeList.metadata.Load().(metadata).Update {
+		if p.IsUpdate && p.Metadata.Update > nodeList.metadata.Load().(common.Metadata).Update {
 			// Update local node's stored metadata
 			nodeList.metadata.Store(p.Metadata)
-			// if nodeList.Protocol == "XDP" {
-			// 	if err := bpf.XdpPushToMap(nodeList.Program, uint32(0), p.Metadata.Update); err != nil {
-			// 		nodeList.println("[Error]:", "Failed to push metadata to map: %v", err)
-			// 	}
-			// }
-
 			nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
 		}
 
 		// Broadcast this node's information
-		//broadcast(nodeList, p)
-		if nodeList.Protocol == "XDP" {
-			fastBroadcast(nodeList, p)
-		} else {
-			broadcast(nodeList, p)
-		}
+		broadcast(nodeList, p)
+
 	}
 }
 
 // Broadcast information
-func broadcast(nodeList *NodeList, p packet) {
+func broadcast(nodeList *NodeList, p common.Packet) {
 
-	p.Type = 0
+	if nodeList.Protocol == "XDP" {
+		fastBroadcast(nodeList, p)
+		return
+	}
+
+	p.Type = 1
 	// Get all unexpired nodes
 	nodes := nodeList.Get()
 
-	var targetNodes []Node
+	var targetNodes []common.Node
 
 	// Select some uninfected nodes
 	i := 0
@@ -168,13 +159,12 @@ func broadcast(nodeList *NodeList, p packet) {
 		// If the node has already been "infected"
 		if p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] {
 			// Skip this node
-			//fmt.Println(p.Infected)
 			continue
 		}
 
 		p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] = true // Mark the node as infected
 		// Set the target node for sending
-		targetNode := Node{
+		targetNode := common.Node{
 			Addr: v.Addr, // Set the target address
 			Port: v.Port, // Set the target port
 		}
@@ -184,7 +174,7 @@ func broadcast(nodeList *NodeList, p packet) {
 		i++
 	}
 
-	//nodeList.println("[Fast Broadcast]:", len(targetNodes))
+	nodeList.println("[Broadcast]:", len(targetNodes))
 
 	// Broadcast the "infection" data to these uninfected nodes
 	for _, v := range targetNodes {
@@ -198,11 +188,9 @@ func broadcast(nodeList *NodeList, p packet) {
 	}
 }
 
-func fastBroadcast(nodeList *NodeList, p packet) {
-	p.Type = 1
+func fastBroadcast(nodeList *NodeList, p common.Packet) {
 	nodes := nodeList.Get()
-
-	var bpfTargets sync.Map
+	var targetNodes []common.Node
 
 	// Select some uninfected nodes
 	i := 0
@@ -223,71 +211,61 @@ func fastBroadcast(nodeList *NodeList, p packet) {
 		// If the node has already been "infected"
 		if p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] {
 			// Skip this node
-			//fmt.Println(p.Infected)
 			continue
 		}
 
 		p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] = true // Mark the node as infected
 		// Set the target node for sending
-		tg := BroadcastTargets{
-			Ip:   IpToUint32(v.Addr),
-			Port: uint16(v.Port),
+		targetNode := common.Node{
+			Addr: v.Addr, // Set the target address
+			Port: v.Port, // Set the target port
+			Mac:  v.Mac,  // Set the target mac
 		}
 
 		// Add the node to the broadcast list
-		bpfTargets.Store(tg, true)
+		targetNodes = append(targetNodes, targetNode)
 		i++
 	}
 
-	//nodeList.println("[Fast Broadcast]:", len(targetNodes))
-	var firstTarget *BroadcastTargets
-	bpfTargets.Range(func(key, value interface{}) bool {
-		if target, ok := key.(BroadcastTargets); ok {
-			firstTarget = &target
-		} else {
-			// Handle the unexpected type or other logic as needed
-			return false
-		}
-		return false
-	})
+	nodeList.println("[Broadcast]:", len(targetNodes))
 
-	if firstTarget != nil {
-		// bpfLock.Lock()
-		// defer bpfLock.Unlock()
-
+	if len(targetNodes) != 0 {
+		/* Handle atomic counter operation for map_id*/
 		map_id := nodeList.Counter.Next()
 		if map_id == 0 {
-			fmt.Println("[MAP ID]:", map_id)
+			nodeList.println("[Map ID error]: map_id is 0")
 		}
 		p.Mapkey = map_id
-		if err := bpf.TcPushtoMap(nodeList.Program, map_id, bpfTargets); err != nil {
-			nodeList.println("[Error]:", "Failed to push to map", err)
+		p.Type = 1
+
+		if err := bpf.TcPushtoMap(nodeList.Program, map_id, targetNodes); err != nil {
+			nodeList.println("[TC error]:", "Failed to push to map", err)
 		}
 
 		bs, err := json.Marshal(p)
 		if err != nil {
 			nodeList.println("[Infection Error]:", err)
 		}
-		addr := Uint32ToIp(firstTarget.Ip) // Convet the IP address to string
-		port := firstTarget.Port
-		//nodeList.println(addr, int(port), bs)
-		write(nodeList, addr, int(port), bs)
-		//time.Sleep(100 * time.Millisecond)
-	} /*else {
-		//nodeList.println("no target")
-	}*/
+
+		addr := targetNodes[0].Addr
+		port := targetNodes[0].Port
+
+		write(nodeList, addr, int(port), bs) // Send the packet
+	} else {
+		nodeList.println("[Not target]:", "No target nodes")
+	}
 }
 
 // Initiate a data exchange request between two nodes
 func swapRequest(nodeList *NodeList) {
 
 	// Set up a swap packet
-	p := packet{
+	p := common.Packet{
 		// Include local node info in the packet, the receiver uses this to respond to the request
 		Type:      2,
 		Node:      nodeList.localNode,
 		Infected:  make(map[string]bool),
-		Metadata:  nodeList.metadata.Load().(metadata),
+		Metadata:  nodeList.metadata.Load().(common.Metadata),
 		SecretKey: nodeList.SecretKey,
 	}
 
@@ -317,14 +295,13 @@ func swapRequest(nodeList *NodeList) {
 }
 
 // Receive a swap request and respond to the sender, completing the swap
-func swapResponse(nodeList *NodeList, node Node) {
+func swapResponse(nodeList *NodeList, node common.Node) {
 	// Set as a swap packet
-	p := packet{
-		Type:     3,
-		Node:     nodeList.localNode,
-		Infected: make(map[string]bool),
-		//IsSwap:    2,
-		Metadata:  nodeList.metadata.Load().(metadata),
+	p := common.Packet{
+		Type:      3,
+		Node:      nodeList.localNode,
+		Infected:  make(map[string]bool),
+		Metadata:  nodeList.metadata.Load().(common.Metadata),
 		SecretKey: nodeList.SecretKey,
 	}
 

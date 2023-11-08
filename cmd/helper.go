@@ -1,43 +1,19 @@
 package cmd
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"time"
 
+	"github.com/asavie/xdp"
 	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
+	common "github.com/kerwenwwer/xdp-gossip/common"
 	"github.com/vishvananda/netlink"
 )
 
-// func ProgramHandler(LinkName string, obj *bpf.BpfObjects) link.Link {
-// 	// Get netlink by name
-// 	link, err := netlink.LinkByName(LinkName)
-// 	if err != nil {
-// 		log.Fatalf("[Error]: Failed to get link by name %v", err)
-// 	}
-
-// 	// Attach Tc program
-// 	if err := bpf.AttachTC(obj, link); err != nil {
-// 		log.Fatalf("[Error]: Failed to attach TC: %v", err)
-// 	}
-
-// 	log.Printf("[Info]: TC attached")
-
-// 	//Attach XDP program
-// 	l := bpf.AttachXDP(obj, LinkName)
-// 	if err := bpf.XdpPushToMap(obj, uint32(0), int64(0)); err != nil {
-// 		log.Fatalf("[Error]: Failed to push metadata to map: %v", err)
-// 	}
-
-// 	log.Printf("[Info]: XDP attached")
-
-// 	return l
-// }
-
-func ProgramHandler(LinkName string, obj *bpf.BpfObjects) {
+// New initializes the local node list
+func ProgramHandler(LinkName string, obj *bpf.BpfObjects) (*xdp.Program, *xdp.Socket) {
 	// Get netlink by name
 	link, err := netlink.LinkByName(LinkName)
 	if err != nil {
@@ -49,40 +25,40 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects) {
 		log.Fatalf("[Error]: Failed to attach TC: %v", err)
 	}
 
-	log.Printf("[Info]: TC attached")
+	log.Printf("[Info]: TC attached. ")
 
 	//Attach XDP program
-	// l := bpf.AttachXDP(obj, LinkName)
-	// if err := bpf.XdpPushToMap(obj, uint32(0), int64(0)); err != nil {
-	// 	log.Fatalf("[Error]: Failed to push metadata to map: %v", err)
-	// }
-
-	// log.Printf("[Info]: XDP attached")
-
-	// return l
-}
-
-// IpToUint32 converts IP to uint32
-func IpToUint32(ipStr string) uint32 {
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		log.Fatalf("Failed to parse IP: %s", ipStr)
+	program, err := bpf.AttachXDP(obj, link.Attrs().Index)
+	if err != nil {
+		log.Fatalf("[Error]: Failed to attach XDP: %v", err)
 	}
-	ip = ip.To4()
-	return binary.LittleEndian.Uint32(ip)
+
+	xsk, err := xdp.NewSocket(link.Attrs().Index, 0, &xdp.SocketOptions{
+		NumFrames:              128,
+		FrameSize:              2048,
+		FillRingNumDescs:       64,
+		CompletionRingNumDescs: 64,
+		RxRingNumDescs:         64,
+		TxRingNumDescs:         64,
+	})
+	if err != nil {
+		log.Fatal("error: failed to create an XDP socket: %v\n", err)
+	}
+
+	if err := program.Register(0, xsk.FD()); err != nil {
+		log.Fatal("error: failed to register socket in BPF map: %v\n", err)
+	}
+	//defer program.Unregister(0)
+
+	log.Printf("[Info]: AF_XDP registered.")
+
+	return program, xsk
+	//return nil, nil
 }
 
-func Uint32ToIp(ipInt uint32) string {
-	return fmt.Sprintf("%d.%d.%d.%d",
-		ipInt&0xFF,
-		(ipInt>>8)&0xFF,
-		(ipInt>>16)&0xFF,
-		(ipInt>>24)&0xFF)
-}
-
-func (nl *NodeList) storeWithCheck(node Node) {
+func (nl *NodeList) storeWithCheck(node common.Node) {
 	nl.nodes.Range(func(k, v interface{}) bool {
-		existingNode, ok := k.(Node)
+		existingNode, ok := k.(common.Node)
 		if ok && existingNode.Addr == node.Addr {
 			fmt.Printf("Node with Addr %s already exists!\n", node.Addr)
 			return false
@@ -93,11 +69,13 @@ func (nl *NodeList) storeWithCheck(node Node) {
 	nl.nodes.Store(node, time.Now().Unix())
 }
 
-func (p *packet) MarshalJSON() ([]byte, error) {
+type MyPacket common.Packet
+
+func (p *MyPacket) MarshalJSON() ([]byte, error) {
 	p.CountStr = string(p.Count)
 	p.Count = '0'
 	//fmt.Printf("CountStr: %s\n", p.CountStr)
-	type Alias packet
+	type Alias common.Packet
 	return json.Marshal(&struct {
 		*Alias
 	}{

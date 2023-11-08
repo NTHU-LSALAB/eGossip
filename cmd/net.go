@@ -4,22 +4,17 @@ import "fmt"
 
 // write
 func write(nodeList *NodeList, addr string, port int, data []byte) {
-	if nodeList.Protocol != "TCP" {
-		udpWrite(nodeList, addr, port, data)
-	} else {
-		tcpWrite(nodeList, addr, port, data)
-	}
+	udpWrite(nodeList, addr, port, data)
 }
 
 // listen
 func listen(nodeList *NodeList, mq chan []byte) {
-	if nodeList.Protocol == "TCP" {
-		fmt.Println("Fastbroadcast not support TCP.")
-	} else if nodeList.Protocol == "UDP" {
+	if nodeList.Protocol == "UDP" {
 		udpListen(nodeList, mq)
 	} else if nodeList.Protocol == "XDP" {
-		udpListen(nodeList, mq)
+		//udpListen(nodeList, mq)
+		xdpListen(nodeList, mq)
 	} else {
-		fmt.Println("Protocol not supported")
+		fmt.Println("Protocol not supported, only UDP and XDP.")
 	}
 }
