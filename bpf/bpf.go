@@ -138,7 +138,7 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets []common.Node) error {
 	value.MaxCount = uint16('0' + targetCount - 1)
 	//fmt.Println("value.MaxCount", value.MaxCount)
 
-	fmt.Println("targets: ", targets)
+	//fmt.Println("targets: ", targets)
 
 	i := 0
 
@@ -159,7 +159,7 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets []common.Node) error {
 
 	//fmt.Println("count", i, targetCount)
 
-	fmt.Println("BC value", value)
+	//fmt.Println("BC value", value)
 
 	if err := mapRef.Put(key, value); err != nil {
 		return err

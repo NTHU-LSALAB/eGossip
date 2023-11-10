@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"log"
 	"net"
 	"strconv"
 	"time"
@@ -36,7 +35,7 @@ func task(nodeList *NodeList) {
 		// Broadcast the heartbeat data packet
 		broadcast(nodeList, p)
 
-		nodeList.println("[Print local nodeList]: ", nodeList.nodes)
+		//nodeList.println("[Print local nodeList]: ", nodeList.nodes)
 		// Initiate a data exchange request with a node in the cluster
 		swapRequest(nodeList)
 
@@ -61,9 +60,9 @@ func consume(nodeList *NodeList, mq chan []byte) {
 			nodeList.println("SrcIP: ", net.IP(bs[26:30]).String(), ", SrcPort: ", int(bs[34])*256+int(bs[35]),
 				", DstIP: ", net.IP(bs[30:34]).String(), ", DstPort: ", int(bs[36])*256+int(bs[37]), "payload:", string(bs[42:]))
 
-			if net.IP(bs[30:34]).String() != nodeList.localNode.Addr {
-				log.Fatalf("[ERROR] DstIP is not local IP")
-			}
+			// if net.IP(bs[30:34]).String() != nodeList.localNode.Addr {
+			// 	log.Fatalf("[ERROR] DstIP is not local IP")
+			// }
 
 			bs = bs[42:] // Only need payload
 		}
@@ -174,7 +173,7 @@ func broadcast(nodeList *NodeList, p common.Packet) {
 		i++
 	}
 
-	nodeList.println("[Broadcast]:", len(targetNodes))
+	//nodeList.println("[Broadcast]:", len(targetNodes))
 
 	// Broadcast the "infection" data to these uninfected nodes
 	for _, v := range targetNodes {
@@ -227,7 +226,7 @@ func fastBroadcast(nodeList *NodeList, p common.Packet) {
 		i++
 	}
 
-	nodeList.println("[Broadcast]:", len(targetNodes))
+	//nodeList.println("[Broadcast]:", len(targetNodes))
 
 	if len(targetNodes) != 0 {
 		/* Handle atomic counter operation for map_id*/
