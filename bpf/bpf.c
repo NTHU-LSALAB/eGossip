@@ -238,13 +238,13 @@ int fastbroadcast(struct __sk_buff *skb) {
   /* Lookup ebpf map */
   struct targets *tgt_list = bpf_map_lookup_elem(&targets_map, &key);
   if (!tgt_list) {
-#ifdef DEBUG_TC
-    __u8 b1, b2, b3, b4;
-    __u8 c1, c2, c3, c4;
-    ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
-    ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
-    bpf_printk("[fastbroad_prog] No target list found before clone packet key=%d, from %u.%u.%u.%u ->  %u.%u.%u.%u \n", key, b3, b2, b1, c4, c3, c2, c1);
-#endif
+// #ifdef DEBUG_TC
+//     __u8 b1, b2, b3, b4;
+//     __u8 c1, c2, c3, c4;
+//     ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+//     ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
+//     bpf_printk("[fastbroad_prog] No target list found before clone packet key=%d, from %u.%u.%u.%u ->  %u.%u.%u.%u \n", key, b3, b2, b1, c4, c3, c2, c1);
+// #endif
     return TC_ACT_OK;
   }
 
@@ -306,11 +306,11 @@ int fastbroadcast(struct __sk_buff *skb) {
 
   if (tgt_list->target_list[num].ip == 0 || tgt_list->target_list[num].port == 0)
   {
-#ifdef DEBUG_TC
-    __u8 b1, b2, b3, b4;
-    ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
-    bpf_printk("ERROR key=%d, max=%d, num=%d, ip:%u.%u.%u.%u\n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1);
-#endif
+// #ifdef DEBUG_TC
+//     __u8 b1, b2, b3, b4;
+//     ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+//     bpf_printk("ERROR key=%d, max=%d, num=%d, ip:%u.%u.%u.%u\n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1);
+// #endif
     return TC_ACT_OK;
   }
 
@@ -321,14 +321,14 @@ int fastbroadcast(struct __sk_buff *skb) {
   ip->check = compute_ip_checksum(ip);
   //memcpy(eth->h_dest, tgt_list->target_list[num].mac, ETH_ALEN);
 
-#ifdef DEBUG_TC
-  __u8 b1, b2, b3, b4;
-  __u8 c1, c2, c3, c4;
-  ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
-  ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
+// #ifdef DEBUG_TC
+//   __u8 b1, b2, b3, b4;
+//   __u8 c1, c2, c3, c4;
+//   ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+//   ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
 
-  bpf_printk("[fastbroad_prog] egress packet acceptd, info: key=%d, max=%d, num=%d, from:%u.%u.%u.%u -> %u.%u.%u.%u \n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1, c4, c3, c2, c1);
-#endif
+//   bpf_printk("[fastbroad_prog] egress packet acceptd, info: key=%d, max=%d, num=%d, from:%u.%u.%u.%u -> %u.%u.%u.%u \n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1, c4, c3, c2, c1);
+// #endif
 
   return TC_ACT_OK;
 }

@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
-	"time"
 
 	"github.com/asavie/xdp"
 	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
@@ -42,13 +40,13 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects) (*xdp.Program, *xdp.So
 		TxRingNumDescs:         64,
 	})
 	if err != nil {
-		log.Fatal("error: failed to create an XDP socket: %v\n", err)
+		log.Fatal("error: failed to create an XDP socket: ", err)
 	}
 
 	if err := program.Register(0, xsk.FD()); err != nil {
-		log.Fatal("error: failed to register socket in BPF map: %v\n", err)
+		log.Fatal("error: failed to register socket in BPF map: ", err)
 	}
-	//defer program.Unregister(0)
+	defer program.Unregister(0)
 
 	log.Printf("[Info]: AF_XDP registered.")
 
@@ -56,18 +54,18 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects) (*xdp.Program, *xdp.So
 	//return nil, nil
 }
 
-func (nl *NodeList) storeWithCheck(node common.Node) {
-	nl.nodes.Range(func(k, v interface{}) bool {
-		existingNode, ok := k.(common.Node)
-		if ok && existingNode.Addr == node.Addr {
-			fmt.Printf("Node with Addr %s already exists!\n", node.Addr)
-			return false
-		}
-		return true
-	})
+// func (nl *NodeList) storeWithCheck(node common.Node) {
+// 	nl.nodes.Range(func(k, v interface{}) bool {
+// 		existingNode, ok := k.(common.Node)
+// 		if ok && existingNode.Addr == node.Addr {
+// 			fmt.Printf("Node with Addr %s already exists!\n", node.Addr)
+// 			return false
+// 		}
+// 		return true
+// 	})
 
-	nl.nodes.Store(node, time.Now().Unix())
-}
+// 	nl.nodes.Store(node, time.Now().Unix())
+// }
 
 type MyPacket common.Packet
 

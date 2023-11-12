@@ -9,7 +9,7 @@ import (
 	common "github.com/kerwenwwer/xdp-gossip/common"
 )
 
-var bpfLock sync.Mutex
+//var bpfLock sync.Mutex
 
 // NodeList is a list of nodes
 type NodeList struct {

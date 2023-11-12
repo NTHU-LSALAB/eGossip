@@ -7,21 +7,6 @@ import (
 	"net"
 )
 
-var count int
-var multipleReceiver = 1
-
-// func udpprocess(mq chan []byte) {
-// 	for pktData := range mq {
-// 		// PAYLOAD
-// 		_ = pktData
-// 		count++
-// 		//log.Println(count)
-// 		log.Print(
-// 			string(pktData),
-// 		)
-// 	}
-// }
-
 // udpWrite send udp data
 func udpWrite(nodeList *NodeList, addr string, port int, data []byte) {
 	socket, err := net.DialUDP("udp", nil, &net.UDPAddr{

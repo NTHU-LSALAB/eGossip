@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"time"
+	"log"
 
 	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
 	common "github.com/kerwenwwer/xdp-gossip/common"
@@ -60,9 +61,9 @@ func consume(nodeList *NodeList, mq chan []byte) {
 			nodeList.println("SrcIP: ", net.IP(bs[26:30]).String(), ", SrcPort: ", int(bs[34])*256+int(bs[35]),
 				", DstIP: ", net.IP(bs[30:34]).String(), ", DstPort: ", int(bs[36])*256+int(bs[37]), "payload:", string(bs[42:]))
 
-			// if net.IP(bs[30:34]).String() != nodeList.localNode.Addr {
-			// 	log.Fatalf("[ERROR] DstIP is not local IP")
-			// }
+			if net.IP(bs[30:34]).String() != nodeList.localNode.Addr {
+				log.Fatalf("[ERROR] DstIP is not local IP")
+			}
 
 			bs = bs[42:] // Only need payload
 		}

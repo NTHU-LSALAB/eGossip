@@ -80,9 +80,9 @@ func startServer() {
 	}
 
 	nodeList.New(common.Node{
-		Addr:        address,
-		Port:        8000,
-		Mac:         mac_address,
+		Addr: address,
+		Port: 8000,
+		//Mac:         mac_address,
 		Name:        nodeName,
 		LinkName:    linkName,
 		PrivateData: "test-data",
