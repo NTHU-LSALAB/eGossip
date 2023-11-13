@@ -74,15 +74,15 @@ func startServer() {
 		nodeList.Xsk = xsk
 	}
 
-	//mac_address, err := common.GetMACAddressByInterfaceName(linkName)
+	mac_address, err := common.GetMACAddressByInterfaceName(linkName)
 	if err != nil {
 		log.Fatal("[[Control]: Get MAC address error. %v]", err)
 	}
 
 	nodeList.New(common.Node{
-		Addr: address,
-		Port: 8000,
-		//Mac:         mac_address,
+		Addr:        address,
+		Port:        8000,
+		Mac:         mac_address,
 		Name:        nodeName,
 		LinkName:    linkName,
 		PrivateData: "test-data",

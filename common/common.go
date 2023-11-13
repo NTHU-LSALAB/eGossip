@@ -10,9 +10,9 @@ import (
 
 // Node represents a node
 type Node struct {
-	Addr string `json:"Addr"` // Node IP address (fill in public IP in public network environment)
-	Port int    `json:"Port"` // Port number
-	//Mac         string `json:"Mac"`         // Node MAC address
+	Addr        string `json:"Addr"`        // Node IP address (fill in public IP in public network environment)
+	Port        int    `json:"Port"`        // Port number
+	Mac         string `json:"Mac"`         // Node MAC address
 	Name        string `json:"Name"`        // Node name (customizable)
 	PrivateData string `json:"PrivateData"` // Node private data (customizable)
 	LinkName    string // bind xdp to this interface
