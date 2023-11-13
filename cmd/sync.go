@@ -217,7 +217,7 @@ func fastBroadcast(nodeList *NodeList, p common.Packet) {
 		targetNode := common.Node{
 			Addr: v.Addr, // Set the target address
 			Port: v.Port, // Set the target port
-			//Mac:  v.Mac,  // Set the target mac
+			Mac:  v.Mac,  // Set the target mac
 		}
 
 		// Add the node to the broadcast list
