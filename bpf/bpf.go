@@ -152,7 +152,7 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets []common.Node) error {
 
 		value.TargetList[i].Ip = common.IpToUint32(v.Addr)
 		value.TargetList[i].Port = uint16(v.Port)
-		value.TargetList[i].Mac = common.MacStringToInt8Array(v.Mac)
+		//value.TargetList[i].Mac = common.MacStringToInt8Array(v.Mac)
 
 		i++
 	}
