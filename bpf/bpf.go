@@ -30,13 +30,28 @@ type BpfObjects struct {
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -cflags "-O2 -Wall" bpf ./bpf.c
 
+// Configuration of QdiscAttrs for clsact qdisc and replace default value (typically is noqueue)
 func replaceQdisc(link netlink.Link) error {
+	// - LinkIndex specifies the network interface where the qdisc is applied.
+	// - Handle is set to a standard value for clsact, which doesn't require a unique identifier.
+	// - Parent is set to HANDLE_CLSACT, positioning clsact at the ingress/egress, not in a qdisc hierarchy.
 	attrs := netlink.QdiscAttrs{
 		LinkIndex: link.Attrs().Index,
 		Handle:    netlink.MakeHandle(0xffff, 0),
 		Parent:    netlink.HANDLE_CLSACT,
 	}
 
+	// Setting up clsact qdisc type for eBPF program attachment
+
+	// Initializes a clsact qdisc, which is specialized for direct packet processing at
+	// ingress and egress points without involving traffic scheduling. This is ideal for
+	// eBPF programs due to clsact's immediate action capabilities on packets, enhancing
+	// network control flexibility and performance.
+	//
+	// - clsact is chosen for its efficiency in executing actions (like eBPF programs) directly,
+	//   bypassing traditional traffic management and scheduling.
+	// - Essential for scenarios requiring dynamic, high-performance packet manipulation.
+	//
 	qdisc := &netlink.GenericQdisc{
 		QdiscAttrs: attrs,
 		QdiscType:  "clsact",
