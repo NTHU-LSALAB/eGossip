@@ -148,7 +148,7 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets []common.Node) error {
 			break
 		}
 
-		fmt.Println(v)
+		//fmt.Println(v)
 
 		value.TargetList[i].Ip = common.IpToUint32(v.Addr)
 		value.TargetList[i].Port = uint16(v.Port)

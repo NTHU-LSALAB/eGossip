@@ -13,8 +13,8 @@
 #include <string.h>
 
 /* Debug flag*/
-#define DEBUG_TC
-// #define DEBUG_XDP
+//#define DEBUG_TC
+#define DEBUG_XDP
 
 /* Contorl definition */
 #define MAX_TARGETS 10
@@ -238,13 +238,13 @@ int fastbroadcast(struct __sk_buff *skb) {
   /* Lookup ebpf map */
   struct targets *tgt_list = bpf_map_lookup_elem(&targets_map, &key);
   if (!tgt_list) {
-// #ifdef DEBUG_TC
-//     __u8 b1, b2, b3, b4;
-//     __u8 c1, c2, c3, c4;
-//     ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
-//     ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
-//     bpf_printk("[fastbroad_prog] No target list found before clone packet key=%d, from %u.%u.%u.%u ->  %u.%u.%u.%u \n", key, b3, b2, b1, c4, c3, c2, c1);
-// #endif
+#ifdef DEBUG_TC
+    __u8 b1, b2, b3, b4;
+    __u8 c1, c2, c3, c4;
+    ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+    ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
+    bpf_printk("[fastbroad_prog] No target list found before clone packet key=%d, from %u.%u.%u.%u ->  %u.%u.%u.%u \n", key, b3, b2, b1, c4, c3, c2, c1);
+#endif
     return TC_ACT_OK;
   }
 
@@ -306,11 +306,11 @@ int fastbroadcast(struct __sk_buff *skb) {
 
   if (tgt_list->target_list[num].ip == 0 || tgt_list->target_list[num].port == 0)
   {
-// #ifdef DEBUG_TC
-//     __u8 b1, b2, b3, b4;
-//     ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
-//     bpf_printk("ERROR key=%d, max=%d, num=%d, ip:%u.%u.%u.%u\n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1);
-// #endif
+#ifdef DEBUG_TC
+    __u8 b1, b2, b3, b4;
+    ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+    bpf_printk("ERROR key=%d, max=%d, num=%d, ip:%u.%u.%u.%u\n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1);
+#endif
     return TC_ACT_OK;
   }
 
@@ -319,16 +319,16 @@ int fastbroadcast(struct __sk_buff *skb) {
   udp->check = 0;
   ip->daddr = tgt_list->target_list[num].ip;
   ip->check = compute_ip_checksum(ip);
-  //memcpy(eth->h_dest, tgt_list->target_list[num].mac, ETH_ALEN);
+  memcpy(eth->h_dest, tgt_list->target_list[num].mac, ETH_ALEN);
 
-// #ifdef DEBUG_TC
-//   __u8 b1, b2, b3, b4;
-//   __u8 c1, c2, c3, c4;
-//   ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
-//   ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
+#ifdef DEBUG_TC
+  __u8 b1, b2, b3, b4;
+  __u8 c1, c2, c3, c4;
+  ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
+  ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
 
-//   bpf_printk("[fastbroad_prog] egress packet acceptd, info: key=%d, max=%d, num=%d, from:%u.%u.%u.%u -> %u.%u.%u.%u \n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1, c4, c3, c2, c1);
-// #endif
+  bpf_printk("[fastbroad_prog] egress packet acceptd, info: key=%d, max=%d, num=%d, from:%u.%u.%u.%u -> %u.%u.%u.%u \n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1, c4, c3, c2, c1);
+#endif
 
   return TC_ACT_OK;
 }
@@ -371,102 +371,6 @@ int xdp_sock_prog(struct xdp_md *ctx)
       bpf_printk("Not the port.\n");
       goto out;
     }
-
-    unsigned char *payload = (unsigned char *)(udp + 1);
-    if (payload + 1 > data_end)
-    {
-      goto drop; // Malformed packet
-    }
-
-    if (payload + 40 > data_end)
-    {
-      goto drop;
-    }
-
-    // 		/* Check packet type is boradcast or metadata switch */
-    // 		__u8 *cursor;
-    // 		int packet_type = type_handler(payload);
-    // 		if (packet_type == 1)
-    // 		{
-    // #ifdef DEBUG_XDP
-    // 			bpf_printk("[fastdrop_prog] bpf_redirect_map to xsk map.\n");
-    // #endif
-    // 			return bpf_redirect_map(&xsks_map, index, 0);
-    // 		}
-    // 		else if (packet_type >= 2)
-    // 		{
-    // 			cursor = payload + 40;
-    // 		}
-    // 		else
-    // 		{
-    // 			goto drop; // Not a valid packet, drop it
-    // 		}
-
-    // 		/* Handler update time. */
-    // 		if (cursor + 2 > data_end)
-    // 		{
-    // 			goto drop;
-    // 		}
-    // 		if (*cursor != ':')
-    // 		{
-    // 			goto drop; // no start
-    // 		}
-    // 		cursor++;
-
-    // 		int64_t update_time = 0;
-    // #pragma clang loop unroll(full)
-    // 		for (int i = 0; i < MAX_INT64_LEN; i++)
-    // 		{
-    // 			if (cursor + (i + 1) > data_end)
-    // 			{
-    // 				goto drop;
-    // 			}
-
-    // 			if (*cursor < '0' || *cursor > '9')
-    // 			{
-    // 				goto drop; // not a number
-    // 			}
-
-    // 			if (*(cursor + i) == ',')
-    // 			{
-    // 				break;
-    // 			}
-    // 			// bpf_printk("[fastdrop_prog]i: %d cursor: %c\n", i, *(cursor+i));
-    // 			update_time = update_time * 10 + (*(cursor + i) - '0');
-    // 		}
-    // 		/* Lookup current metadata*/
-    // 		__u32 key = 0;
-    // 		struct metadata *current_metadata = bpf_map_lookup_elem(&metadata_map, &key);
-    // 		if (!current_metadata)
-    // 		{
-    // 			return bpf_redirect_map(&xsks_map, index, 0); // No metadata found, handle in userspace
-    // 		}
-
-    // 		if (update_time == current_metadata->update_time)
-    // 		{
-    // 			goto drop; // Drop packet if update time is same as current metadata
-    // 		}
-    // 		else if (update_time < current_metadata->update_time)
-    // 		{
-    // 			unsigned int saddr = ip->saddr;
-    // 			unsigned int daddr = ip->daddr;
-    // 			// unsigned short port = udp->dest;
-
-    // 			ip->saddr = daddr;
-    // 			ip->daddr = saddr;
-    // 			swap_src_dst_mac(data);
-
-    // 			return XDP_TX; // Send it back to the sender
-    // 		}
-    // 		else
-    // 		{
-    // 			struct metadata new_metadata;
-    // 			new_metadata.update_time = update_time;
-    // 			// memcpy(new_metadata.metadata, payload, MAX_SIZE);
-
-    // 			bpf_map_update_elem(&metadata_map, &key, &new_metadata, BPF_ANY);
-    // 			goto drop;
-    // 		}
 
     return bpf_redirect_map(&xsks_map, index, 0);
   }

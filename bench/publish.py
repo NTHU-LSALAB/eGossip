@@ -3,6 +3,7 @@ import time
 import random
 import string
 import multiprocessing
+import subprocess
 
 NODES_1 = ["http://192.168.3.11:8000"]
 NODES_2 = ["http://192.168.3.12:8000"]
@@ -33,10 +34,12 @@ def send_metadata_update(node_url, metadata):
     data = {"test-meta": metadata}
     requests.post(f"{node_url}/publish", headers=headers, json=data)
 
-def metadata_update(node_list):
-    end_time = time.time() + 10*60  # Set end time to 15 minutes from now
 
-    while time.time() < end_time:
+def run_shell_script():
+    subprocess.run(["./strace.sh"])
+
+def metadata_update(node_list):
+    while True:
         for _ in range(1500000000):
             node = random.choice(node_list)  # Choose a node for update
             metadata = random_metadata_string()
@@ -46,17 +49,19 @@ def metadata_update(node_list):
 def main():
     # Create two subprocesses for the two nodes
     process1 = multiprocessing.Process(target=metadata_update, args=(NODES_1,))
+    process2 = multiprocessing.Process(target=run_shell_script)
+
     #process2 = multiprocessing.Process(target=metadata_update, args=(NODES_2,))
     #process3 = multiprocessing.Process(target=metadata_update, args=(NODES_3,))
 
     # Start the processes
     process1.start()
-    #process2.start()
+    # process2.start()
     #process3.start()
 
     # Wait for both processes to complete
     process1.join()
-    #process2.join()
+    # process2.join()
     #process3.join()
 
 if __name__ == "__main__":

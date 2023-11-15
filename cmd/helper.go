@@ -26,32 +26,32 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects) (*xdp.Program, *xdp.So
 	log.Printf("[Info]: TC attached. ")
 
 	//Attach XDP program
-	// program, err := bpf.AttachXDP(obj, link.Attrs().Index)
-	// if err != nil {
-	// 	log.Fatalf("[Error]: Failed to attach XDP: %v", err)
-	// }
+	program, err := bpf.AttachXDP(obj, link.Attrs().Index)
+	if err != nil {
+		log.Fatalf("[Error]: Failed to attach XDP: %v", err)
+	}
 
-	// xsk, err := xdp.NewSocket(link.Attrs().Index, 0, &xdp.SocketOptions{
-	// 	NumFrames:              128,
-	// 	FrameSize:              2048,
-	// 	FillRingNumDescs:       64,
-	// 	CompletionRingNumDescs: 64,
-	// 	RxRingNumDescs:         64,
-	// 	TxRingNumDescs:         64,
-	// })
-	// if err != nil {
-	// 	log.Fatal("error: failed to create an XDP socket: ", err)
-	// }
+	xsk, err := xdp.NewSocket(link.Attrs().Index, 0, &xdp.SocketOptions{
+		NumFrames:              128,
+		FrameSize:              2048,
+		FillRingNumDescs:       64,
+		CompletionRingNumDescs: 64,
+		RxRingNumDescs:         64,
+		TxRingNumDescs:         64,
+	})
+	if err != nil {
+		log.Fatal("error: failed to create an XDP socket: ", err)
+	}
 
-	// if err := program.Register(0, xsk.FD()); err != nil {
-	// 	log.Fatal("error: failed to register socket in BPF map: ", err)
-	// }
-	// defer program.Unregister(0)
+	if err := program.Register(0, xsk.FD()); err != nil {
+		log.Fatal("error: failed to register socket in BPF map: ", err)
+	}
+	defer program.Unregister(0)
 
 	log.Printf("[Info]: AF_XDP registered.")
 
-	//return program, xsk
-	return nil, nil
+	return program, xsk
+	//return nil, nil
 }
 
 // func (nl *NodeList) storeWithCheck(node common.Node) {

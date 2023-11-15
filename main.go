@@ -57,7 +57,7 @@ func startServer() {
 	nodeList := cmd.NodeList{
 		Protocol:  protocol, // The network protocol used to connect cluster nodes
 		SecretKey: "test_key",
-		IsPrint:   true,
+		IsPrint:   false,
 	}
 
 	/* Load BPF program */
