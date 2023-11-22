@@ -97,6 +97,11 @@ func startServer() {
 	http.HandleFunc("/publish", nodeList.PublishHandler())
 	http.HandleFunc("/metadata", nodeList.GetMetadataHandler())
 
+	// Start the profile server
+	cmd.NewProfileHttpServer(":9000")
+
+	//defer profile.Start().Stop()
+
 	// Start the server
 	log.Println("[[Control]: Starting http command server in TCP port 8000.]")
 	err = http.ListenAndServe(":8000", nil)
@@ -138,8 +143,6 @@ func startClient() error {
 
 		// Add additional code to handle the message if necessary
 	}
-
-	return nil
 }
 
 var rootCmd = &cobra.Command{
