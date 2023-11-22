@@ -22,7 +22,7 @@ jobs:
         go-version: '1.19'
         
     - name: Generate 
-      run: go generate ./bpf/
+      run: GOFLAGS=-mod=mod go generate ./bpf/
       
     - name: Build
       run: go build -o ./bin/xdp-gossip ./main.go
