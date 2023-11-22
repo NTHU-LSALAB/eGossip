@@ -2,3 +2,4 @@ bin/
 go.sum
 bpf/bpf_*
 .vscode
+log
