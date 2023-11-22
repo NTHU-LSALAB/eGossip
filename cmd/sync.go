@@ -56,12 +56,14 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		bs := <-mq
 
 		if nodeList.Protocol == "XDP" {
-			// nodeList.println("SrcIP: ", net.IP(bs[26:30]).String(), ", SrcPort: ", int(bs[34])*256+int(bs[35]),
-			// 	", DstIP: ", net.IP(bs[30:34]).String(), ", DstPort: ", int(bs[36])*256+int(bs[37]), "payload:", string(bs[42:]))
+			//nodeList.println("SrcIP: ", net.IP(bs[26:30]).String(), ", SrcPort: ", int(bs[34])*256+int(bs[35]),
+			//	", DstIP: ", net.IP(bs[30:34]).String(), ", DstPort: ", int(bs[36])*256+int(bs[37]), "payload:", string(bs[42:]))
 
 			// if net.IP(bs[30:34]).String() != nodeList.localNode.Addr {
 			// 	log.Fatalf("[ERROR] DstIP is not local IP")
 			// }
+			bs[60] = byte('0')
+			//nodeList.println("Count: ", string(bs[42:65]))
 
 			bs = bs[42:] // Only need payload
 		}
@@ -69,10 +71,11 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		var p common.Packet
 		err := json.Unmarshal(bs, &p)
 
+		//nodeList.println(p.Count)
 		// If data parsing error
 		if err != nil {
-			nodeList.println("[Consumer Data Parsing Error]:", err)
-			nodeList.println("[Consumer Data]:", string(bs))
+			//nodeList.println("[Consumer Data Parsing Error]:", err)
+			nodeList.println("[Consumer Data Parsing Error]:", err, string(bs))
 			// Skip
 			continue
 		}
@@ -250,7 +253,7 @@ func fastBroadcast(nodeList *NodeList, p common.Packet) {
 
 		write(nodeList, addr, int(port), bs) // Send the packet
 	} else {
-		nodeList.println("[Not target]:", "No target nodes")
+		//nodeList.println("[Not target]:", "No target nodes")
 	}
 }
 

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"log"
 
 	"github.com/asavie/xdp"
@@ -69,14 +68,14 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects) (*xdp.Program, *xdp.So
 
 type MyPacket common.Packet
 
-func (p *MyPacket) MarshalJSON() ([]byte, error) {
-	p.CountStr = string(p.Count)
-	p.Count = '0'
-	//fmt.Printf("CountStr: %s\n", p.CountStr)
-	type Alias common.Packet
-	return json.Marshal(&struct {
-		*Alias
-	}{
-		Alias: (*Alias)(p),
-	})
-}
+// func (p *MyPacket) MarshalJSON() ([]byte, error) {
+// 	p.CountStr = string('0')
+// 	p.Count = '0'
+// 	//fmt.Printf("CountStr: %s\n", p.CountStr)
+// 	type Alias common.Packet
+// 	return json.Marshal(&struct {
+// 		*Alias
+// 	}{
+// 		Alias: (*Alias)(p),
+// 	})
+// }
