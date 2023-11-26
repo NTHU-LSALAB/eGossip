@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Specify the container name or ID
-CONTAINER_NAME_OR_ID="xdp-gossip-gossip_service1-1"
+CONTAINER_NAME_OR_ID="xdp-gossip-gossip_service10-1"
 
 # Find the PID of the container
 PID=$(docker inspect --format '{{ .State.Pid }}' $CONTAINER_NAME_OR_ID)
