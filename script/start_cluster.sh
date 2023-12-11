@@ -1,6 +1,6 @@
 #!/bin/bash
 
-server_count=15
+server_count=3
 
 ip_base=11
 mac_base="02:42:ac:12:00:"

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gossip-service
+spec:
+  replicas: 30
+  selector:
+    matchLabels:
+      app: gossip-service
+  template:
+    metadata:
+      labels:
+        app: gossip-service
+    spec:
+      containers:
+      - name: gossip-container
+        image: kerwenwwer/gossip-service:latest
+        imagePullPolicy: Always  # Or IfNotPresent, Never
+        securityContext:
+          privileged: true
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: PROTO
+          value: "XDP"

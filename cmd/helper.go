@@ -53,7 +53,6 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool) (*xdp.Prog
 	}
 
 	return program, xsk
-	//return nil, nil
 }
 
 // func (nl *NodeList) storeWithCheck(node common.Node) {
