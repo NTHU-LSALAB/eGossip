@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	MAX_TARGETS = 20
+	MAX_TARGETS = 64
 )
 
 type TargetInfoInterface interface {

@@ -17,7 +17,7 @@
 #define DEBUG_XDP
 
 /* Contorl definition */
-#define MAX_TARGETS 20
+#define MAX_TARGETS 64  // Max targets for broadcast
 #define MAX_SIZE 200
 #define MTU 1500
 #define MAX_PAYLOAD 1000
