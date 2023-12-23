@@ -112,15 +112,40 @@ def configure_servers():
             print(f"Error sending POST request to {ip}: {e}")    
 
 
-def main():
+# Count the list length in the gossip node
+def count_list_length():
+    ip_addresses = get_ip_addresses()
+    for i in ip_addresses:
+        url = f"http://{i}:8000/list"
+        try:
+            response = requests.get(url)    # Make GET request
+            response.raise_for_status()     # Raise exception if invalid response
 
+            json_data = response.json()
+
+            ip_addresses = [item['Addr'] for item in json_data]
+            ip_count = len(ip_addresses)
+
+            print(f"IP: {i}, Nodelist size: {ip_count}")
+            print("---------------------------------------")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to retrieve data from {i}: {e}")
+        except json.JSONDecodeError as e:
+            print(f"Failed to parse JSON data from {i}: {e}")
+
+
+def main():
+    # Parse the arguments
     parser = argparse.ArgumentParser(description="Configure the servers")   
     parser.add_argument('-t', '--test', action='store_true', help='Test parsing config', required=False)
     parser.add_argument('-c', '--configure', action='store_true', help='Configure the servers', required=False)
     parser.add_argument('-b', '--bench', action='store_true', help='Benchmakr the cluster', required=False)
+    parser.add_argument('-gl', '--get-list', action='store_true', help='Get all output list of gossip node', required=False)
 
     args = parser.parse_args()
 
+    # Check the arguments
     if args.test:
         test_configurations()
     elif args.configure:
@@ -143,6 +168,8 @@ def main():
         process1.join()
         #process2.join()
         #process3.join()
+    elif args.get_list:
+        count_list_length()
     else:
         print("No arguments given")
 
