@@ -13,8 +13,8 @@
 #include <string.h>
 
 /* Debug flag*/
-#define DEBUG_TC
-#define DEBUG_XDP
+//#define DEBUG_TC
+//#define DEBUG_XDP
 
 /* Contorl definition */
 #define MAX_TARGETS 64  // Max targets for broadcast

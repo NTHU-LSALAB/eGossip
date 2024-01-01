@@ -15,11 +15,6 @@ func (nodeList *NodeList) New(localNode common.Node) {
 		localNode.Addr = "0.0.0.0"
 	}
 
-	// Protocol default value: UDP
-	// if nodeList.Protocol != "TCP" || nodeList.Protocol != "XDP" {
-	// 	nodeList.Protocol = "UDP"
-	// }
-
 	// ListenAddr default value: 0.0.0.0
 	if nodeList.ListenAddr == "" {
 		nodeList.ListenAddr = localNode.Addr
@@ -27,7 +22,7 @@ func (nodeList *NodeList) New(localNode common.Node) {
 
 	// Amount default value: 3
 	if nodeList.Amount == 0 {
-		nodeList.Amount = 64
+		nodeList.Amount = 30
 	}
 
 	// Cycle default value: 6
@@ -69,8 +64,6 @@ func (nodeList *NodeList) New(localNode common.Node) {
 
 	// Store atomic counter for bpf map key
 	nodeList.Counter = common.NewAtomicCounter()
-
-	// Load bpf objects
 }
 
 // Join joins the cluster
@@ -143,6 +136,12 @@ func (nodeList *NodeList) Set(node common.Node) {
 		return
 	}
 
+	// If new node has different subnet, set mac address to gateway mac
+	samesub, _ := common.IsSameSubnet(node.Addr, nodeList.localNode.Addr, "255.255.255.0")
+	if !samesub {
+		node.Mac = nodeList.GatewayMAC
+	}
+
 	if node.Addr == "" {
 		node.Addr = "0.0.0.0"
 	}
@@ -164,13 +163,14 @@ func (nodeList *NodeList) Get() []common.Node {
 	var nodes []common.Node
 	// Traverse all key-value pairs in sync.Map
 	nodeList.nodes.Range(func(k, v interface{}) bool {
-		//If this node has not been updated for a while
-		// if v.(int64)+nodeList.Timeout < time.Now().Unix() {
-		// 	nodeList.nodes.Delete(k)
-		// 	nodeList.println("[[Timeout]:", k, "has been deleted]")
-		// } else {
-		nodes = append(nodes, k.(common.Node))
-		// }
+		//If this node has not been updated for a while, delete it
+		if v.(int64)+nodeList.Timeout < time.Now().Unix() {
+			// nodeList.nodes.Delete(k)
+			// nodeList.println("[[Timeout]:", k, "has been deleted]")
+			nodes = append(nodes, k.(common.Node))
+		} else {
+			nodes = append(nodes, k.(common.Node))
+		}
 		return true
 	})
 	return nodes

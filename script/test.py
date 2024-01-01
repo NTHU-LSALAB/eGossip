@@ -73,7 +73,6 @@ def test_configurations():
 
         print(results)    
 
-
 # Function to configure the servers
 def configure_servers():
     # Retrieve the IP addresses
@@ -133,7 +132,6 @@ def count_list_length():
             print(f"Failed to retrieve data from {i}: {e}")
         except json.JSONDecodeError as e:
             print(f"Failed to parse JSON data from {i}: {e}")
-
 
 def main():
     # Parse the arguments

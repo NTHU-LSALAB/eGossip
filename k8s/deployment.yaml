@@ -2,8 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gossip-service
+  namespace: gossip
 spec:
-  replicas: 30
+  replicas: 5
   selector:
     matchLabels:
       app: gossip-service
@@ -12,6 +13,8 @@ spec:
       labels:
         app: gossip-service
     spec:
+      # nodeSelector:
+      #  kubernetes.io/hostname: gossip-2
       containers:
       - name: gossip-container
         image: kerwenwwer/gossip-service:latest

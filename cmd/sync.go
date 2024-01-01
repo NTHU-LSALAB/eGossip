@@ -129,7 +129,6 @@ func consume(nodeList *NodeList, mq chan []byte) {
 
 		// Broadcast this node's information
 		broadcast(nodeList, p)
-
 	}
 }
 

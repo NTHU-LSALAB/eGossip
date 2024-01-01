@@ -1,11 +1,16 @@
 package common
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
+	"os/exec"
+	"strings"
 	"sync/atomic"
+
+	"github.com/mdlayher/arp"
 )
 
 // Node represents a node
@@ -124,5 +129,67 @@ func GetMACAddressByInterfaceName(interfaceName string) (string, error) {
 	}
 
 	mac := interfaceObj.HardwareAddr.String()
+	return mac, nil
+}
+
+func IsSameSubnet(ip1, ip2 string, subnetMask string) (bool, error) {
+	ipAddr1 := net.ParseIP(ip1)
+	ipAddr2 := net.ParseIP(ip2)
+	netmask := net.IPMask(net.ParseIP(subnetMask).To4())
+
+	network1 := ipAddr1.Mask(netmask).To4()
+	network2 := ipAddr2.Mask(netmask).To4()
+
+	return net.IP.Equal(network1, network2), nil
+}
+
+func getGatewayIP() (net.IP, error) {
+	cmd := exec.Command("ip", "route")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(string(output)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "default via") {
+			parts := strings.Fields(line)
+			if len(parts) > 2 {
+				gatewayIP := net.ParseIP(parts[2])
+				if gatewayIP == nil {
+					return nil, fmt.Errorf("Fail to parse gateway IP")
+				}
+				return gatewayIP, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("No default gateway found")
+}
+
+func FindGatewayMAC(interfaceName string) (net.HardwareAddr, error) {
+
+	gatewayIP, err := getGatewayIP()
+	if err != nil {
+		fmt.Println("Fail to get gateway IP", err)
+	}
+
+	iface, err := net.InterfaceByName(interfaceName)
+	if err != nil {
+		return nil, fmt.Errorf("Fail to open interface %s: %v", interfaceName, err)
+	}
+
+	client, err := arp.Dial(iface)
+	if err != nil {
+		return nil, fmt.Errorf("Fail to create arp client: %v", err)
+	}
+	defer client.Close()
+
+	mac, err := client.Resolve(gatewayIP)
+	if err != nil {
+		return nil, fmt.Errorf("Fail to reslove %v: %v", gatewayIP, err)
+	}
+
 	return mac, nil
 }

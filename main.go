@@ -63,6 +63,15 @@ func startServer() {
 
 	if debug {
 		nodeList.IsPrint = true
+		// Open a file for writing.
+		file, err := os.Create("output.txt")
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		// Redirect standard output to the file.
+		os.Stdout = file
 	} else {
 		nodeList.IsPrint = false
 	}
@@ -86,6 +95,12 @@ func startServer() {
 		log.Fatal("[[Control]: Get MAC address error. %v]", err)
 	}
 
+	gatewayMAC, err := common.FindGatewayMAC(linkName)
+	if err != nil {
+		log.Fatal("[[Control]: Get gateway MAC address error. %v]", err)
+	}
+	nodeList.GatewayMAC = gatewayMAC.String()
+
 	nodeList.New(common.Node{
 		Addr:        address,
 		Port:        8000,
@@ -105,9 +120,9 @@ func startServer() {
 	http.HandleFunc("/metadata", nodeList.GetMetadataHandler())
 
 	// Start the profile server
-	if debug {
-		cmd.NewProfileHttpServer(":9000")
-	}
+	// if debug {
+	// 	cmd.NewProfileHttpServer(":9000")
+	// }
 	//defer profile.Start().Stop()
 
 	// Start the server
