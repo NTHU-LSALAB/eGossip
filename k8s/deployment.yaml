@@ -4,7 +4,7 @@ metadata:
   name: gossip-service
   namespace: gossip
 spec:
-  replicas: 5
+  replicas: 15
   selector:
     matchLabels:
       app: gossip-service
@@ -13,8 +13,8 @@ spec:
       labels:
         app: gossip-service
     spec:
-      # nodeSelector:
-      #  kubernetes.io/hostname: gossip-2
+      nodeSelector:
+        kubernetes.io/hostname: gossip-2
       containers:
       - name: gossip-container
         image: kerwenwwer/gossip-service:latest
@@ -28,3 +28,7 @@ spec:
               fieldPath: metadata.name
         - name: PROTO
           value: "XDP"
+        resources:
+          limits:
+            cpu: "1"
+            memory: "512Mi"

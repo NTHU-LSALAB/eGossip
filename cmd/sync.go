@@ -117,6 +117,8 @@ func consume(nodeList *NodeList, mq chan []byte) {
 		// Retrieve node information from the heartbeat packet
 		node := p.Node
 
+		nodeList.println("[Recv]:", node.Addr+":"+strconv.Itoa(node.Port))
+
 		// Update local list
 		nodeList.Set(node)
 

@@ -145,7 +145,7 @@ static __always_inline __u16 mapkey_handler(const char *payload) {
   // Convert to an actual number
   return hundreds * 100 + tens * 10 + ones;
 }
-
+/* Metadata handler */
 static __always_inline int64_t metadata_handler(const char *payload, __u8 *cursor, void *data_end) {
   int64_t value = 0;
 #pragma clang loop unroll(full)
@@ -402,7 +402,6 @@ int xdp_sock_prog(struct xdp_md *ctx) {
     void *data_end = (void *)(long)ctx->data_end;
     struct ethhdr *eth = data;
 
-
     __u16 h_proto = eth->h_proto;
     if ((void *)eth + sizeof(*eth) > data_end)
       goto out;
@@ -411,19 +410,24 @@ int xdp_sock_prog(struct xdp_md *ctx) {
       goto out;
 
     struct iphdr *ip = data + sizeof(*eth);
-    if ((void *)ip + sizeof(*ip) > data_end)
+    if ((void *)ip + sizeof(*ip) > data_end){
+      //bpf_printk("ip + sizeof(*ip) > data_end\n");
       goto out;
+    }
 
-    if (ip->protocol != IPPROTO_UDP) // Only UDP packets
+    if (ip->protocol != IPPROTO_UDP){ // Only UDP packets
+      //bpf_printk("ip->protocol != IPPROTO_UDP\n");
       goto out;
+    }
 
     struct udphdr *udp = (void *)ip + sizeof(*ip);
-    if ((void *)udp + sizeof(*udp) > data_end)
+    if ((void *)udp + sizeof(*udp) > data_end){
       goto out;
+    }
 
     if (udp->dest != bpf_htons(PORT))
     {
-      bpf_printk("Not the port.\n");
+      //bpf_printk("Not the port.\n");
       goto out;
     }
 
