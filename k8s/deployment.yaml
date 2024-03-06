@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gossip-service
+  namespace: gossip
+spec:
+  replicas: 15
+  selector:
+    matchLabels:
+      app: gossip-service
+  template:
+    metadata:
+      labels:
+        app: gossip-service
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: gossip-2
+      containers:
+      - name: gossip-container
+        image: kerwenwwer/gossip-service:latest
+        imagePullPolicy: Always  # Or IfNotPresent, Never
+        securityContext:
+          privileged: true
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: PROTO
+          value: "XDP"
+        resources:
+          limits:
+            cpu: "1"
+            memory: "512Mi"

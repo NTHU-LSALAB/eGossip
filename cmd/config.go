@@ -36,4 +36,6 @@ type NodeList struct {
 	Program *bpf.BpfObjects       // bpf program
 	Xsk     *xdp.Socket           // xdp socket
 	Counter *common.AtomicCounter // bpf program key counter
+
+	GatewayMAC string // gateway mac address
 }

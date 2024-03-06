@@ -2,7 +2,7 @@ version: '3'
 services:
   gossip_service1:
     build: .
-    command: ["xdp-gossip", "server", "--name", "server1" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    command: ["xdp-gossip", "server", "--name", "server1" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
     privileged: true
     mac_address: 02:42:ac:12:00:01
     networks:
@@ -11,7 +11,7 @@ services:
 
   gossip_service2:
     build: .
-    command: ["xdp-gossip", "server", "--name", "server2" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    command: ["xdp-gossip", "server", "--name", "server2" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
     #command: ["xdp-gossip", "client"]
     privileged: true
     mac_address: 02:42:ac:12:00:02
@@ -21,7 +21,7 @@ services:
 
   gossip_service3:
     build: .
-    command: ["xdp-gossip", "server", "--name", "server3" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
+    command: ["xdp-gossip", "server", "--name", "server3" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
     #command: ["xdp-gossip", "client"]
     privileged: true
     mac_address: 02:42:ac:12:00:03
@@ -29,70 +29,115 @@ services:
       gossip_network:
         ipv4_address: 192.168.3.13
 
-  # gossip_service4:
-  #   build: .
-  #   command: ["xdp-gossip", "server", "--name", "server4" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
-  #   #command: ["xdp-gossip", "client"]
-  #   privileged: true
-  #   mac_address: 02:42:ac:12:00:04
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.14
+  gossip_service4:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server4" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    #command: ["xdp-gossip", "client"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:04
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.14
 
-  # gossip_service5:
-  #   build: .
-  #   command: ["xdp-gossip", "server", "--name", "server5" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
-  #   #command: ["xdp-gossip", "client"]
-  #   privileged: true
-  #   mac_address: 02:42:ac:12:00:05
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.15
+  gossip_service5:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server5" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    #command: ["xdp-gossip", "client"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:05
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.15
   
-  # gossip_service6:
-  #   build: .
-  #   command: ["xdp-gossip", "server", "--name", "server6" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
-  #   privileged: true
-  #   mac_address: 02:42:ac:12:00:06
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.16
+  gossip_service6:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server6" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:06
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.16
 
-  # gossip_service7:
-  #   build: .
-  #   command: ["xdp-gossip", "server", "--name", "server7" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
-  #   privileged: true
-  #   mac_address: 02:42:ac:12:00:07
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.17
+  gossip_service7:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server7" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:07
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.17
 
-  # gossip_service8:
-  #   build: .
-  #   command: ["xdp-gossip", "server", "--name", "server8" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
-  #   privileged: true
-  #   mac_address: 02:42:ac:12:00:08
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.18
+  gossip_service8:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server8" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:08
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.18
 
-  # gossip_service9:
-  #   build: .
-  #   command: ["xdp-gossip", "server", "--name", "server9" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
-  #   privileged: true
-  #   mac_address: 02:42:ac:12:00:09
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.19
+  gossip_service9:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server9" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:09
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.19
 
-  # gossip_service10:
-  #   build: .
-  #   command: ["xdp-gossip", "server", "--name", "server10" ,"--link", "eth0", "--proto", "${MY_PROTO}"]
-  #   privileged: true
-  #   mac_address: 02:42:ac:12:00:10
-  #   networks:
-  #     gossip_network:
-  #       ipv4_address: 192.168.3.20
+  gossip_service10:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server10" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:10
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.20
+
+  gossip_service11:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server11" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:11
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.21
+
+  gossip_service12:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server12" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:12
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.22
+
+  gossip_service13:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server13" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:13
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.23
+  
+  gossip_service14:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server14" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:14
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.24
+
+  gossip_service15:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server15" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:15
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.25
 
 networks:
   gossip_network:

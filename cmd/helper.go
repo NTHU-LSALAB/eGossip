@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"log"
 
 	"github.com/asavie/xdp"
@@ -11,7 +10,7 @@ import (
 )
 
 // New initializes the local node list
-func ProgramHandler(LinkName string, obj *bpf.BpfObjects) (*xdp.Program, *xdp.Socket) {
+func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool) (*xdp.Program, *xdp.Socket) {
 	// Get netlink by name
 	link, err := netlink.LinkByName(LinkName)
 	if err != nil {
@@ -23,8 +22,9 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects) (*xdp.Program, *xdp.So
 		log.Fatalf("[Error]: Failed to attach TC: %v", err)
 	}
 
-	log.Printf("[Info]: TC attached. ")
-
+	if debug {
+		log.Printf("[Info]: TC attached. ")
+	}
 	//Attach XDP program
 	program, err := bpf.AttachXDP(obj, link.Attrs().Index)
 	if err != nil {
@@ -48,7 +48,9 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects) (*xdp.Program, *xdp.So
 	}
 	defer program.Unregister(0)
 
-	log.Printf("[Info]: AF_XDP registered.")
+	if debug {
+		log.Printf("[Info]: AF_XDP registered.")
+	}
 
 	return program, xsk
 	//return nil, nil
@@ -68,15 +70,3 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects) (*xdp.Program, *xdp.So
 // }
 
 type MyPacket common.Packet
-
-func (p *MyPacket) MarshalJSON() ([]byte, error) {
-	p.CountStr = string(p.Count)
-	p.Count = '0'
-	//fmt.Printf("CountStr: %s\n", p.CountStr)
-	type Alias common.Packet
-	return json.Marshal(&struct {
-		*Alias
-	}{
-		Alias: (*Alias)(p),
-	})
-}

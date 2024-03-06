@@ -1,4 +1,5 @@
-all: bpf/*.o build
+all: build
+docker: docker-build docker-push
 
 .PHONY: bpf/*.o 
 bpf/*.o: bpf/*.c
@@ -10,7 +11,11 @@ build: bpf/*.o
 
 .PHONY: docker-build
 docker-build:
-	docker build -t xdp-gossip .
+	docker build -t kerwenwwer/gossip-service:latest .
+
+.PHONY: docker-push
+docker-push:
+	docker push kerwenwwer/gossip-service:latest
 
 .PHONY: docker-up
 docker-up:

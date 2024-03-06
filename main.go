@@ -17,11 +17,13 @@ var nodeName string
 var linkName string
 var protocol string
 var isServer bool
+var debug bool = false
 
 func startServer() {
 	fmt.Printf("---------- Starting XDP Gossip node --------\n")
 	fmt.Printf("Node name: %s\n", nodeName)
 	fmt.Printf("Protocol: %s\n", protocol)
+	fmt.Printf("DEBUG: %d\n", debug)
 	fmt.Printf("--------------------------------------------\n")
 
 	// Default address
@@ -57,7 +59,21 @@ func startServer() {
 	nodeList := cmd.NodeList{
 		Protocol:  protocol, // The network protocol used to connect cluster nodes
 		SecretKey: "test_key",
-		IsPrint:   false,
+	}
+
+	if debug {
+		nodeList.IsPrint = true
+		// Open a file for writing.
+		file, err := os.Create("output.txt")
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		// Redirect standard output to the file.
+		os.Stdout = file
+	} else {
+		nodeList.IsPrint = false
 	}
 
 	/* Load BPF program */
@@ -69,7 +85,7 @@ func startServer() {
 
 		nodeList.Program = obj
 
-		l, xsk := cmd.ProgramHandler(linkName, obj)
+		l, xsk := cmd.ProgramHandler(linkName, obj, debug)
 		defer l.Close()
 		nodeList.Xsk = xsk
 	}
@@ -78,6 +94,12 @@ func startServer() {
 	if err != nil {
 		log.Fatal("[[Control]: Get MAC address error. %v]", err)
 	}
+
+	gatewayMAC, err := common.FindGatewayMAC(linkName)
+	if err != nil {
+		log.Fatal("[[Control]: Get gateway MAC address error. %v]", err)
+	}
+	nodeList.GatewayMAC = gatewayMAC.String()
 
 	nodeList.New(common.Node{
 		Addr:        address,
@@ -96,6 +118,12 @@ func startServer() {
 	http.HandleFunc("/stop", nodeList.StopNodeHandler())
 	http.HandleFunc("/publish", nodeList.PublishHandler())
 	http.HandleFunc("/metadata", nodeList.GetMetadataHandler())
+
+	// Start the profile server
+	// if debug {
+	// 	cmd.NewProfileHttpServer(":9000")
+	// }
+	//defer profile.Start().Stop()
 
 	// Start the server
 	log.Println("[[Control]: Starting http command server in TCP port 8000.]")
@@ -138,8 +166,6 @@ func startClient() error {
 
 		// Add additional code to handle the message if necessary
 	}
-
-	return nil
 }
 
 var rootCmd = &cobra.Command{
@@ -172,9 +198,10 @@ func init() {
 	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(clientCmd)
 
-	serverCmd.Flags().StringVar(&nodeName, "name", "", "provide a node name")
-	serverCmd.Flags().StringVar(&linkName, "link", "eth0", "provide a link name")
-	serverCmd.Flags().StringVar(&protocol, "proto", "UDP", "provide a running mode")
+	serverCmd.Flags().StringVar(&nodeName, "name", "", "provide a node name.")
+	serverCmd.Flags().StringVar(&linkName, "link", "eth0", "provide a link name.")
+	serverCmd.Flags().StringVar(&protocol, "proto", "UDP", "provide a running mode.")
+	serverCmd.PersistentFlags().BoolVar(&debug, "debug", false, "debug mode, open print and profile.")
 }
 
 func main() {
