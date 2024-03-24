@@ -7,21 +7,31 @@ Basic Gossip API is from [PekoNode](https://github.com/dpwgc/pekonode/tree/maste
 ## Build and Test
 Using make command it will build and run automatically.
 
+Build binary file
 ``` make ``` 
 
-If you only want to restart a docker compose server
+Build docker image 
+``` make docker``` 
+
+Start a docker compose server
 
 ``` docker-compose up ``` 
+
+## k8s
+
+``` kubectl apply -f k8s/deployment.yaml ``` 
 
 
 ### Implement function
 
 ### eBPF Feature
 
-#### Fastbroadcast
+#### In-kernel broadcastor
 Using ebpf TC hook to implement a clone redirect with a resruion structure, allowing gossip to quickly replicate multiple copies by only sending a single packet to the Linux protocol stack.
 
 Attention !! In Linux network implementation, to avoid netlink or TC causing packet recursion too many times, which could lead to stack overflow, the XMIT_RESUION_LIMIT is set to 8. If Gossip needs to broadcast to more than 8 nodes, consider modifying the kernel source code.
+
+![](img/3.png)
 
 
 ##### Cluster node list sharing
