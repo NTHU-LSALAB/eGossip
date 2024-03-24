@@ -50,7 +50,8 @@ python3 script/test.py -b
 #### In-kernel broadcastor
 Using ebpf TC hook to implement a clone redirect with a resruion structure, allowing gossip to quickly replicate multiple copies by only sending a single packet to the Linux protocol stack.
 
-Attention !! In Linux network implementation, to avoid netlink or TC causing packet recursion too many times, which could lead to stack overflow, the XMIT_RESUION_LIMIT is set to 8. If Gossip needs to broadcast to more than 8 nodes, consider modifying the kernel source code.
+
+> Attention !! In Linux network implementation, to avoid netlink or TC causing packet recursion too many times, which could lead to stack overflow, the ``XMIT_RESUION_LIMIT``  is set to 8. If Gossip needs to broadcast to more than 8 nodes, consider modifying the kernel source code.
 
 ![](img/3.png)
 
