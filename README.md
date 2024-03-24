@@ -1,45 +1,73 @@
-# XDP Gossip
+# eGossip
 
-## A Gossip protocol toolkit based on eBPF feature
-
-Basic Gossip API is from [PekoNode](https://github.com/dpwgc/pekonode/tree/master)
-
-## Build and Test
+## Build
 Using make command it will build and run automatically.
 
 Build binary file
-``` make ``` 
+``` 
+make 
+``` 
 
 Build docker image 
-``` make docker``` 
+``` 
+make docker
+``` 
 
 Start a docker compose server
 
-``` docker-compose up ``` 
+``` 
+docker-compose up 
+``` 
 
-## k8s
+For k8s deployment:
 
-``` kubectl apply -f k8s/deployment.yaml ``` 
+``` 
+kubectl apply -f k8s/deployment.yaml 
+``` 
 
+## Benchmark (only support k8s)
 
-### Implement function
+After deployment is ready, we can use our custom benchmark tool to test our server, first we should config the cluster first
+
+```bash
+ python3 script/test.py -c 
+``` 
+
+Then we can use ``-gl`` flag to check the nodeList size.
+``` 
+python3 script/test.py -gl 
+``` 
+
+Use ``-b`` flag to generate random metadata update event on a node.
+``` 
+python3 script/test.py -b
+``` 
+
+## Implement function
 
 ### eBPF Feature
 
 #### In-kernel broadcastor
 Using ebpf TC hook to implement a clone redirect with a resruion structure, allowing gossip to quickly replicate multiple copies by only sending a single packet to the Linux protocol stack.
 
-Attention !! In Linux network implementation, to avoid netlink or TC causing packet recursion too many times, which could lead to stack overflow, the XMIT_RESUION_LIMIT is set to 8. If Gossip needs to broadcast to more than 8 nodes, consider modifying the kernel source code.
 
-![](img/3.png)
+> Attention !! In Linux network implementation, to avoid netlink or TC causing packet recursion too many times, which could lead to stack overflow, the ``XMIT_RESUION_LIMIT``  is set to 8. If Gossip needs to broadcast to more than 8 nodes, consider modifying the kernel source code.
+
+<img src="img/3.png" width="400" class="center">
+
+
+### Gossip Protocol
+
+Basic Gossip API is from [PekoNode](https://github.com/dpwgc/pekonode/tree/master)
 
 
 ##### Cluster node list sharing
 * Synchronize the list of cluster nodes through rumor propagation `NodeList` (Each node will eventually store a complete list of nodes that can be used in service registration discovery scenarios)
 ##### Cluster metadata information sharing
 * Publishing cluster metadata information through rumor spreading `Metadata` (The public data of the cluster, the local metadata information of each node is eventually consistent, and the storage content can be customized, such as storing some public configuration information, acting as a configuration center), The metadata verification and error correction function of each node of the cluster is realized through data exchange.
-##### TCP or UDP protocol can be used to realize bottom communication interaction
-* Customize the underlying communication protocol through the `NodeList - Protocol` field. UDP is used by default. If you want to pursue high reliability, you can use TCP.
+##### UDP protocol can be used to realize bottom communication interaction
+* Customize the underlying communication protocol through the `NodeList - Protocol` field. UDP is used by default.
+
 ##### Custom configuration
 * The node list `NodeList` list provides a series of parameters for users to customize and configure. Users can use the default parameters, or fill in the parameters according to their needs.
 ***
