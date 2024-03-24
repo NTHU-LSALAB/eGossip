@@ -53,7 +53,7 @@ Using ebpf TC hook to implement a clone redirect with a resruion structure, allo
 
 > Attention !! In Linux network implementation, to avoid netlink or TC causing packet recursion too many times, which could lead to stack overflow, the ``XMIT_RESUION_LIMIT``  is set to 8. If Gossip needs to broadcast to more than 8 nodes, consider modifying the kernel source code.
 
-![](img/3.png)
+<img src="img/3.png" width="400" class="center">
 
 
 ### Gossip Protocol
