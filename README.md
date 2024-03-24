@@ -1,4 +1,4 @@
-# XDP Gossip
+# eGossip
 
 ## Build
 Using make command it will build and run automatically.
