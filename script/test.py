@@ -45,11 +45,19 @@ def run_shell_script():
 # Function to generate metadata updates
 def metadata_update(node_list):
     while True:
-        for _ in range(1500000000):
+        for _ in range(1500000):
             node = random.choice(node_list)  # Choose a node for update
             metadata = random_metadata_string()
             send_metadata_update(node, metadata)
-            time.sleep(1/1500000000 * 60)  # Spread out the 150 updates over one minute
+            time.sleep(1/1500000 * 60)  # Spread out the 150 updates over one minute
+
+def metadata_update_fix(node_list):
+    update_count = 25000  
+    for _ in range(update_count):
+        node = random.choice(node_list)  
+        metadata = random_metadata_string() 
+        send_metadata_update(node, metadata)
+        #time.sleep(0.001) 
 
 def test_configurations():
     # Retrieve the IP addresses
@@ -139,6 +147,7 @@ def main():
     parser.add_argument('-t', '--test', action='store_true', help='Test parsing config', required=False)
     parser.add_argument('-c', '--configure', action='store_true', help='Configure the servers', required=False)
     parser.add_argument('-b', '--bench', action='store_true', help='Benchmakr the cluster', required=False)
+    parser.add_argument('-bf', '--bench-fix', action='store_true', help='Benchmakr the cluster', required=False)
     parser.add_argument('-gl', '--get-list', action='store_true', help='Get all output list of gossip node', required=False)
 
     args = parser.parse_args()
@@ -151,23 +160,29 @@ def main():
     elif args.bench:
         ip_list = get_ip_addresses()
         # print(ip_list[0])
-        process1 = multiprocessing.Process(target=metadata_update, args=(["http://"+ip_list[0]+":8000"],))        
-        #process2 = multiprocessing.Process(target=run_shell_script)
-
-        #process2 = multiprocessing.Process(target=metadata_update, args=(NODES_2,))
-        #process3 = multiprocessing.Process(target=metadata_update, args=(NODES_3,))
-
+        # process1 = multiprocessing.Process(target=metadata_update, args=(["http://"+ip_list[0]+":8000"],))        
+        
+        metadata_update(["http://"+ip_list[0]+":8000"])
         # Start the processes
-        process1.start()
-        #process2.start()
-        #process3.start()
+       # process1.start()
 
         # Wait for both processes to complete
-        process1.join()
-        #process2.join()
-        #process3.join()
+        #process1.join()
     elif args.get_list:
         count_list_length()
+    elif args.bench_fix:
+        ip_list = get_ip_addresses()
+        # metadata_update_fix(["http://"+ip_list[0]+":8000"])
+        process1 = multiprocessing.Process(target=metadata_update_fix, args=(["http://"+ip_list[0]+":8000"],))      
+        process2 = multiprocessing.Process(target=metadata_update_fix, args=(["http://"+ip_list[1]+":8000"],))
+        process3 = multiprocessing.Process(target=metadata_update_fix, args=(["http://"+ip_list[2]+":8000"],))    
+
+        process1.start()
+        process2.start()
+        process3.start()
+        process1.join()
+        process2.join()
+        process3.join()
     else:
         print("No arguments given")
 
