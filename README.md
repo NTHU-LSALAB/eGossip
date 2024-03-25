@@ -3,7 +3,10 @@
 ## About
 
 The Extended Berkeley Packet Filter (eBPF) presents a transformative approach to dynamic micro-program loading and execution directly within the Linux kernel, circumventing the need for kernel recompilation.  
-Our primary focus is the deployment of TC eBPF hooks for in-kernel packet cloning, aiming to enhance the efficiency of user-space broadcasts.  This approach is particularly pivotal in consensus algorithms like Gossip, which heavily rely on user-space broadcast mechanisms. We explore the implementation of this method, highlighting its ability to significantly boost broadcast speeds. Our findings reveal a marked improvement in CPU utilization, which decreased by 27\%, and in Transmit Bandwidth, which increased by a factor of 2.67, in Gossip-based systems. This research demonstrates the potential of eBPF in reducing the overhead of network protocol stacks and system calls, which significantly optimizes the common user-space broadcast behavior found in distributed consensus algorithms.
+Our primary focus is the deployment of TC eBPF hooks for in-kernel packet cloning, aiming to enhance the efficiency of user-space broadcasts.  This approach is particularly pivotal in consensus algorithms like Gossip, which heavily rely on user-space broadcast mechanisms. We explore the implementation of this method, highlighting its ability to significantly boost broadcast speeds.
+
+<div align=center> <img src="img/3.png" width="400" class="center"></div>
+
 
 ## Build & Test
 Using make command it will build and run automatically.
@@ -83,21 +86,9 @@ Switch to different protocol modes by changing ``PROTO`` in ``k8s/deployment.yam
 
 ## Implement function
 
-### eBPF Feature
-
-#### In-kernel broadcastor
-Using ebpf TC hook to implement a clone redirect with a resruion structure, allowing gossip to quickly replicate multiple copies by only sending a single packet to the Linux protocol stack.
-
-
-> Attention !! In Linux network implementation, to avoid netlink or TC causing packet recursion too many times, which could lead to stack overflow, the ``XMIT_RESUION_LIMIT``  is set to 8. If Gossip needs to broadcast to more than 8 nodes, consider modifying the kernel source code.
-
-<img src="img/3.png" width="400" class="center">
-
-
 ### Gossip Protocol
 
 Basic Gossip API is from [PekoNode](https://github.com/dpwgc/pekonode/tree/master)
-
 
 ##### Cluster node list sharing
 * Synchronize the list of cluster nodes through rumor propagation `NodeList` (Each node will eventually store a complete list of nodes that can be used in service registration discovery scenarios)
@@ -118,11 +109,37 @@ Basic Gossip API is from [PekoNode](https://github.com/dpwgc/pekonode/tree/maste
 * Repeat the previous broadcast step (rumor propagation method) until all nodes are infected, and this heartbeat infection ends.
 * If there is a node in the local node list NodeList that has not sent the heartbeat update after timeout, delete the data of the timeout node.
 
-![](img/1.png)
+
+<div align=center> <img src="img/1.png" width="600" class="center"></div>
 
 ##### `Metadata` Metadata information synchronization
 * After a node calls the Publish() function to publish new metadata, the new data will spread to each node and then overwrite their local metadata information.
 * Each node will periodically select a random node for metadata exchange check operation. If the metadata on a node is found to be old, it will be overwritten (anti-entropy propagation method).
 * When a new node joins the cluster, the node will obtain the latest cluster metadata information through the data exchange function.
 
-![](img/2.png)
+
+<div align=center> <img src="img/2.png" width="450" class="center"></div>
+
+
+##### Sync. packet type
+
+|Type number | Usage|
+|---| ---|
+|1|Heartbeat packet (Broadcast)|
+|2| Metadata switch request   | 
+|3|Metadata switch response |
+
+
+
+### eBPF Feature
+
+#### In-kernel broadcastor
+Using ebpf TC hook to implement a clone redirect with a resruion structure, allowing gossip to quickly replicate multiple copies by only sending a single packet to the Linux protocol stack.
+
+
+> Attention !! In Linux network implementation, to avoid netlink or TC causing packet recursion too many times, which could lead to stack overflow, the ``XMIT_RESUION_LIMIT``  is set to 8. If Gossip needs to broadcast to more than 8 nodes, consider modifying the kernel source code.
+
+
+#### AF_XDP Kernel bypass
+
+Our programming framework is intricately designed to meticulously analyze the type of incoming packets. Specifically, it is engineered to filter and redirect only those packets classified as type 1 and 2 to the xsk\_map, while ensuring that TCP packets are seamlessly guided along the established socket pathway to the controller. This selective redirection approach is pivotal, as it leverages the AF\_XDP Socket's high-performance characteristics for certain types of traffic, while maintaining the traditional processing route for TCP packets. Such a differentiated handling mechanism highlights our system's capability to optimize network traffic processing by integrating advanced packet filtering and redirection techniques, thereby enhancing both the efficiency and reliability of packet receiving and processing within complex networking environments.
