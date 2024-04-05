@@ -1,23 +1,25 @@
 // +build ignore
 
+#include <arpa/inet.h>
 #include <linux/bpf.h>
-#include <linux/if_ether.h>
-#include <linux/udp.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/pkt_cls.h>
-#include <bpf/bpf_helpers.h>
+#include <linux/udp.h>
+
+// BPF Header files
 #include <bpf/bpf_endian.h>
-#include <arpa/inet.h>
+#include <bpf/bpf_helpers.h>
+
 #include <string.h>
 
 /* Debug flag*/
-//#define DEBUG_TC
-//#define DEBUG_XDP
+// #define DEBUG_TC
+// #define DEBUG_XDP
 
 /* Contorl definition */
-#define MAX_TARGETS 64  // Max targets for broadcast
+#define MAX_TARGETS 64 // Max targets for broadcast
 #define MAX_SIZE 200
 #define MTU 1500
 #define MAX_PAYLOAD 1000
@@ -146,7 +148,8 @@ static __always_inline __u16 mapkey_handler(const char *payload) {
   return hundreds * 100 + tens * 10 + ones;
 }
 /* Metadata handler */
-static __always_inline int64_t metadata_handler(const char *payload, __u8 *cursor, void *data_end) {
+static __always_inline int64_t metadata_handler(const char *payload,
+                                                __u8 *cursor, void *data_end) {
   int64_t value = 0;
 #pragma clang loop unroll(full)
   for (int i = 0; i < MAX_INT64_LEN; i++) {
@@ -169,7 +172,8 @@ static __always_inline int64_t metadata_handler(const char *payload, __u8 *curso
 }
 
 /* Debug function for convet u32 type ip variable into readable number. */
-static __always_inline void ip_to_bytes(__u32 ip_addr, __u8 *byte1, __u8 *byte2, __u8 *byte3, __u8 *byte4) {
+static __always_inline void ip_to_bytes(__u32 ip_addr, __u8 *byte1, __u8 *byte2,
+                                        __u8 *byte3, __u8 *byte4) {
   *byte1 = (ip_addr & 0xFF000000) >> 24;
   *byte2 = (ip_addr & 0x00FF0000) >> 16;
   *byte3 = (ip_addr & 0x0000FF00) >> 8;
@@ -192,57 +196,60 @@ static __always_inline void swap_src_dst_mac(void *data) {
 }
 
 // Function to extract a JSON segment
-static __always_inline int extractJsonSegment(const char *payload, int payloadSize, struct xdp_md *ctx) {
-    char output[MAX_SEGMENT_SIZE]; // Fixed-size buffer
-    int i = 0, j = 0, startFound = 0;
-    char target[] = "\"Metadata\":{";
-    int targetLength = sizeof(target) - 1; // Length of the target string
+static __always_inline int
+extractJsonSegment(const char *payload, int payloadSize, struct xdp_md *ctx) {
+  char output[MAX_SEGMENT_SIZE]; // Fixed-size buffer
+  int i = 0, j = 0, startFound = 0;
+  char target[] = "\"Metadata\":{";
+  int targetLength = sizeof(target) - 1; // Length of the target string
 
-    // Search for the target segment
-    if (payloadSize < targetLength) {
-        bpf_printk("Payload too small.\n");
-        return XDP_DROP;
+  // Search for the target segment
+  if (payloadSize < targetLength) {
+    bpf_printk("Payload too small.\n");
+    return XDP_DROP;
+  }
+
+  for (i = 0; i < payloadSize - targetLength; i++) {
+    startFound = 1;
+
+    // if (payload + (i + 1) > payloadSize) {
+    //     bpf_printk("Payload too small.\n");
+    //     return XDP_DROP;
+    // }
+
+    for (j = 0; j < targetLength; j++) {
+      if (payload[i + j] != target[j]) {
+        startFound = 0;
+        break;
+      }
     }
 
-    for (i = 0; i < payloadSize - targetLength; i++) {
-        startFound = 1;
+    if (startFound) {
+      int outputIndex = 0;
+      int bracketCount = 1;
 
-        // if (payload + (i + 1) > payloadSize) {
-        //     bpf_printk("Payload too small.\n");
-        //     return XDP_DROP;
-        // }
+      // Copy the content starting from the '{'
+      for (j = i + targetLength;
+           j < payloadSize && outputIndex < MAX_SEGMENT_SIZE - 1; j++) {
+        output[outputIndex++] = payload[j];
 
-        for (j = 0; j < targetLength; j++) {
-            if (payload[i + j] != target[j]) {
-                startFound = 0;
-                break;
-            }
+        // Counting brackets to find the end of the JSON segment
+        if (payload[j] == '{') {
+          bracketCount++;
+        } else if (payload[j] == '}') {
+          bracketCount--;
+          if (bracketCount == 0)
+            break;
         }
+      }
 
-        if (startFound) {
-            int outputIndex = 0;
-            int bracketCount = 1;
-
-            // Copy the content starting from the '{'
-            for (j = i + targetLength; j < payloadSize && outputIndex < MAX_SEGMENT_SIZE - 1; j++) {
-                output[outputIndex++] = payload[j];
-                
-                // Counting brackets to find the end of the JSON segment
-                if (payload[j] == '{') {
-                    bracketCount++;
-                } else if (payload[j] == '}') {
-                    bracketCount--;
-                    if (bracketCount == 0) break;
-                }
-            }
-
-            output[outputIndex] = '\0'; // Null-terminate the string
-            bpf_printk("Extracted content: %s\n", output);
-            return 1;
-        }
+      output[outputIndex] = '\0'; // Null-terminate the string
+      bpf_printk("Extracted content: %s\n", output);
+      return 1;
     }
+  }
 
-    bpf_printk("Target segment not found.\n");
+  bpf_printk("Target segment not found.\n");
 }
 
 /* ebpf TC Hook for Fastbroadcast. */
@@ -297,7 +304,9 @@ int fastbroadcast(struct __sk_buff *skb) {
     __u8 c1, c2, c3, c4;
     ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
     ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
-    bpf_printk("[fastbroad_prog] No target list found before clone packet key=%d, from %u.%u.%u.%u ->  %u.%u.%u.%u \n", key, b3, b2, b1, c4, c3, c2, c1);
+    bpf_printk("[fastbroad_prog] No target list found before clone packet "
+               "key=%d, from %u.%u.%u.%u ->  %u.%u.%u.%u \n",
+               key, b3, b2, b1, c4, c3, c2, c1);
 #endif
     return TC_ACT_OK;
   }
@@ -312,7 +321,8 @@ int fastbroadcast(struct __sk_buff *skb) {
     payload[18] = nxt;
 #ifdef DEBUG_TC
     int res = bpf_clone_redirect(skb, skb->ifindex, 0);
-    bpf_printk("[fastbroad_prog] clone packet, res: %d, curr: %d, max: %d\n", res, curr - '0', tgt_list->max_count - '0');
+    bpf_printk("[fastbroad_prog] clone packet, res: %d, curr: %d, max: %d\n",
+               res, curr - '0', tgt_list->max_count - '0');
 #else
     bpf_clone_redirect(skb, skb->ifindex, 0);
 #endif
@@ -329,18 +339,15 @@ int fastbroadcast(struct __sk_buff *skb) {
   if (payload + sizeof(__u64) > data_end)
     return TC_ACT_OK;
 
-  if (payload + 45 >= data_end)
-  {
+  if (payload + 45 >= data_end) {
     return TC_ACT_SHOT;
   }
 
-  if (payload > data_end)
-  {
+  if (payload > data_end) {
     return TC_ACT_SHOT;
   }
 
-  if (tgt_list->max_count - '0' < tgt_list->max_count - curr)
-  {
+  if (tgt_list->max_count - '0' < tgt_list->max_count - curr) {
 #ifdef DEBUG_TC
     bpf_printk("[fastbroad_prog] TC_ACT_SHOT (Counting error)\n");
 #endif
@@ -350,20 +357,21 @@ int fastbroadcast(struct __sk_buff *skb) {
   int num = (tgt_list->max_count - '0') - (tgt_list->max_count - curr);
 
 #ifdef DEBUG_TC
-  bpf_printk("[fastbroad_prog] egress packet: num:%d, curr: %d, max_count:%d\n", num, payload[18] - '0', tgt_list->max_count - '0');
+  bpf_printk("[fastbroad_prog] egress packet: num:%d, curr: %d, max_count:%d\n",
+             num, payload[18] - '0', tgt_list->max_count - '0');
 #endif
 
-  if (num < 0 || num >= MAX_TARGETS)
-  {
+  if (num < 0 || num >= MAX_TARGETS) {
     return TC_ACT_SHOT;
   }
 
-  if (tgt_list->target_list[num].ip == 0 || tgt_list->target_list[num].port == 0)
-  {
+  if (tgt_list->target_list[num].ip == 0 ||
+      tgt_list->target_list[num].port == 0) {
 #ifdef DEBUG_TC
     __u8 b1, b2, b3, b4;
     ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
-    bpf_printk("ERROR key=%d, max=%d, num=%d, ip:%u.%u.%u.%u\n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1);
+    bpf_printk("ERROR key=%d, max=%d, num=%d, ip:%u.%u.%u.%u\n", key,
+               tgt_list->max_count - '0', num, b4, b3, b2, b1);
 #endif
     return TC_ACT_OK;
   }
@@ -381,7 +389,10 @@ int fastbroadcast(struct __sk_buff *skb) {
   ip_to_bytes(ip->saddr, &b1, &b2, &b3, &b4);
   ip_to_bytes(ip->daddr, &c1, &c2, &c3, &c4);
 
-  bpf_printk("[fastbroad_prog] egress packet acceptd, info: key=%d, max=%d, num=%d, from:%u.%u.%u.%u -> %u.%u.%u.%u \n", key, tgt_list->max_count - '0', num, b4, b3, b2, b1, c4, c3, c2, c1);
+  bpf_printk("[fastbroad_prog] egress packet acceptd, info: key=%d, max=%d, "
+             "num=%d, from:%u.%u.%u.%u -> %u.%u.%u.%u \n",
+             key, tgt_list->max_count - '0', num, b4, b3, b2, b1, c4, c3, c2,
+             c1);
 #endif
 
   return TC_ACT_OK;
@@ -395,9 +406,9 @@ int xdp_sock_prog(struct xdp_md *ctx) {
 
   // A set entry here means that the correspnding queue_id
   // has an active AF_XDP socket bound to it.
-  if (bpf_map_lookup_elem(&qidconf_map, &index))
-  {
-    // redirect packets to an xdp socket that match the given IPv4 or IPv6 protocol; pass all other packets to the kernel
+  if (bpf_map_lookup_elem(&qidconf_map, &index)) {
+    // redirect packets to an xdp socket that match the given IPv4 or IPv6
+    // protocol; pass all other packets to the kernel
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
     struct ethhdr *eth = data;
@@ -410,150 +421,25 @@ int xdp_sock_prog(struct xdp_md *ctx) {
       goto out;
 
     struct iphdr *ip = data + sizeof(*eth);
-    if ((void *)ip + sizeof(*ip) > data_end){
-      //bpf_printk("ip + sizeof(*ip) > data_end\n");
+    if ((void *)ip + sizeof(*ip) > data_end) {
+      // bpf_printk("ip + sizeof(*ip) > data_end\n");
       goto out;
     }
 
-    if (ip->protocol != IPPROTO_UDP){ // Only UDP packets
-      //bpf_printk("ip->protocol != IPPROTO_UDP\n");
+    if (ip->protocol != IPPROTO_UDP) { // Only UDP packets
+      // bpf_printk("ip->protocol != IPPROTO_UDP\n");
       goto out;
     }
 
     struct udphdr *udp = (void *)ip + sizeof(*ip);
-    if ((void *)udp + sizeof(*udp) > data_end){
+    if ((void *)udp + sizeof(*udp) > data_end) {
       goto out;
     }
 
-    if (udp->dest != bpf_htons(PORT))
-    {
-      //bpf_printk("Not the port.\n");
+    if (udp->dest != bpf_htons(PORT)) {
+      // bpf_printk("Not the port.\n");
       goto out;
     }
-
-    // unsigned short total_packet_length = ntohs(ip->tot_len);
-//     unsigned short ip_header_length = ip->ihl * 4; // IP header length in bytes
-//     unsigned short udp_length = ntohs(udp->len); // Length of UDP header + payload
-
-//     unsigned short payload_size = udp_length - sizeof(struct udphdr);
-
-// #ifdef DEBUG_XDP
-//     bpf_printk("[xdp_sock_prog] payload_size: %d\n", payload_size);
-// #endif
-
-//     unsigned char *payload = (unsigned char *)(udp + 1);
-//     if (payload + 1 > data_end)
-//     {
-//       goto drop; // Malformed packet
-//     }
-
-//     if (payload + 40 > data_end)
-//     {
-//       goto drop;
-//     }
-
-//     /* Check packet type is boradcast or metadata switch */
-//     __u8 *cursor;
-//     int packet_type = type_handler(payload);
-//     if (packet_type == 1)
-//     {
-// #ifdef DEBUG_XDP
-//       bpf_printk("[xdp_sock_prog] Type 1 packet -> bpf_redirect_map to xsk map.\n");
-// #endif
-//       return bpf_redirect_map(&xsks_map, index, 0);
-//     }
-//     else if (packet_type >= 2)
-//     {
-//       cursor = payload + 40;
-// #ifdef DEBUG_XDP
-//       bpf_printk("[xdp_sock_prog] Type 2 packet -> Handle update_time.\n");
-// #endif
-//     }
-//     else
-//     {
-//       goto drop; // Not a valid packet, drop it
-//     }
-
-    // int result = extractJsonSegment(payload, payload_size, ctx);
-    // return result;
-
-//     /* Handler update time. */
-//     if (cursor + MAX_INT64_LEN > data_end)
-//     {
-// #ifdef DEBUG_XDP
-//       bpf_printk("[xdp_sock_prog] Cursor + MAX_INT64_LEN > data_end\n");
-// #endif
-//       goto drop;
-//     }
-//     if (*cursor != ':')
-//     {
-// #ifdef DEBUG_XDP
-//       bpf_printk("[xdp_sock_prog] != :\n");
-// #endif
-//       goto drop; // no start
-//     }
-//     cursor++;
-
-//     int64_t update_time = 0;
-// //#pragma clang loop unroll(full)
-//     for (int i = 0; i < MAX_INT64_LEN; i++)
-//     {
-//       if (cursor + (i + 1) > data_end)
-//       {
-// #ifdef DEBUG_XDP
-//       bpf_printk("[xdp_sock_prog] i+1 > data_end\n");
-// #endif
-//         return XDP_DROP;
-//       }
-
-//       if (*cursor < '0' || *cursor > '9')
-//       {
-// #ifdef DEBUG_XDP
-//       bpf_printk("[xdp_sock_prog] < '0', > '9'\n");
-// #endif
-//         return XDP_DROP; // not a number
-//       }
-
-//       if (*(cursor + i) == ',')
-//       {
-//         break;
-//       }
-//       update_time = update_time * 10 + (*(cursor + i) - '0');
-//       bpf_printk("[xdp_sock_prog] i: %d, cursor: %c, update_time: %d\n", i, *(cursor+i), update_time);
-//     }
-    /* Lookup current metadata*/
-    // __u32 key = 0;
-    // struct metadata *current_metadata = bpf_map_lookup_elem(&metadata_map, &key);
-    // if (!current_metadata)
-    // {
-    //   return bpf_redirect_map(&xsks_map, index, 0); // No metadata found, handle in userspace
-    // }
-
-    // if (update_time == current_metadata->update_time)
-    // {
-    //   goto drop; // Drop packet if update time is same as current metadata
-    // }
-    // else if (update_time < current_metadata->update_time)
-    // {
-    //   unsigned int saddr = ip->saddr;
-    //   unsigned int daddr = ip->daddr;
-    //   // unsigned short port = udp->dest;
-
-    //   ip->saddr = daddr;
-    //   ip->daddr = saddr;
-    //   swap_src_dst_mac(data);
-
-    //   return XDP_TX; // Send it back to the sender
-    // }
-    // else
-    // {
-    //   struct metadata new_metadata;
-    //   new_metadata.update_time = update_time;
-    //   // memcpy(new_metadata.metadata, payload, MAX_SIZE);
-
-    //   bpf_map_update_elem(&metadata_map, &key, &new_metadata, BPF_ANY);
-    //   goto drop;
-    // }
 
     return bpf_redirect_map(&xsks_map, index, 0);
   }
