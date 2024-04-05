@@ -422,12 +422,16 @@ int xdp_sock_prog(struct xdp_md *ctx) {
 
     struct iphdr *ip = data + sizeof(*eth);
     if ((void *)ip + sizeof(*ip) > data_end) {
-      // bpf_printk("ip + sizeof(*ip) > data_end\n");
+#ifdef DEBUG_XDP
+      bpf_printk("ip + sizeof(*ip) > data_end\n");
+#endif
       goto out;
     }
 
     if (ip->protocol != IPPROTO_UDP) { // Only UDP packets
-      // bpf_printk("ip->protocol != IPPROTO_UDP\n");
+#ifdef DEBUG_XDP
+      bpf_printk("ip->protocol != IPPROTO_UDP\n");
+#endif
       goto out;
     }
 
@@ -437,7 +441,9 @@ int xdp_sock_prog(struct xdp_md *ctx) {
     }
 
     if (udp->dest != bpf_htons(PORT)) {
-      // bpf_printk("Not the port.\n");
+#ifdef DEBUG_XDP
+      bpf_printk("Not the port.\n");
+#endif
       goto out;
     }
 
@@ -448,7 +454,6 @@ drop:
   return XDP_DROP;
 
 out:
-  // bpf_printk("[xdp_sock_prog] XDP_PASS\n");
   return XDP_PASS;
 }
 
