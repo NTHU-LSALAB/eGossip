@@ -60,14 +60,6 @@ struct message {
   struct node_info node;
 };
 
-/* BPF_MAP_TYPE_HASH for nodelist */
-struct {
-  __uint(type, BPF_MAP_TYPE_HASH);
-  __type(key, __u16);
-  __type(value, struct targets);
-  __uint(max_entries, 1024);
-} nodelist_map SEC(".maps");
-
 /* BPF_MAP_TYPE_HASH for broadcast target */
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
@@ -76,7 +68,17 @@ struct {
   __uint(max_entries, 1024);
 } targets_map SEC(".maps"); // map for targets
 
-/* BPF_MAP_TYPE_HASH for metadata store */
+
+/* BPF_MAP_TYPE_HASH for nodelist (Not use for now.) */
+struct {
+  __uint(type, BPF_MAP_TYPE_HASH);
+  __type(key, __u16);
+  __type(value, struct targets);
+  __uint(max_entries, 1024);
+} nodelist_map SEC(".maps");
+
+
+/* BPF_MAP_TYPE_HASH for metadata store (Not use for now.) */
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
   __type(key, __u16);
