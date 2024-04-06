@@ -1,0 +1,57 @@
+version: '3'
+services:
+  gossip_service1:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server1" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:01
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.11
+
+  gossip_service2:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server2" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:02
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.12
+
+  gossip_service3:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server3" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:03
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.13
+
+  gossip_service4:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server4" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:04
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.14
+
+  gossip_service5:
+    build: .
+    command: ["xdp-gossip", "server", "--name", "server5" ,"--link", "eth0", "--proto", "${MY_PROTO}", "{$DEBUG}"]
+    privileged: true
+    mac_address: 02:42:ac:12:00:05
+    networks:
+      gossip_network:
+        ipv4_address: 192.168.3.15
+  
+
+networks:
+  gossip_network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1500
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.3.0/24
