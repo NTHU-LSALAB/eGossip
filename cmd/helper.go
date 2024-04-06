@@ -14,21 +14,21 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool) (*xdp.Prog
 	// Get netlink by name
 	link, err := netlink.LinkByName(LinkName)
 	if err != nil {
-		log.Fatalf("[Error]: Failed to get link by name %v", err)
+		log.Fatalf("[BPF Handler]: Failed to get link by name %v", err)
 	}
 
 	// Attach Tc program
 	if err := bpf.AttachTC(obj, link); err != nil {
-		log.Fatalf("[Error]: Failed to attach TC: %v", err)
+		log.Fatalf("[BPF Handler]: Failed to attach TC: %v", err)
 	}
 
 	if debug {
-		log.Printf("[Info]: TC attached. ")
+		log.Printf("[BPF Handler]: TC program attached. ")
 	}
 	//Attach XDP program
 	program, err := bpf.AttachXDP(obj, link.Attrs().Index)
 	if err != nil {
-		log.Fatalf("[Error]: Failed to attach XDP: %v", err)
+		log.Fatalf("[BPF Handler]: Failed to attach XDP: %v", err)
 	}
 
 	xsk, err := xdp.NewSocket(link.Attrs().Index, 0, &xdp.SocketOptions{
@@ -40,33 +40,20 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool) (*xdp.Prog
 		TxRingNumDescs:         64,
 	})
 	if err != nil {
-		log.Fatal("error: failed to create an XDP socket: ", err)
+		log.Fatal("[BPF Handler]: error: failed to create an XDP socket: ", err)
 	}
 
 	if err := program.Register(0, xsk.FD()); err != nil {
-		log.Fatal("error: failed to register socket in BPF map: ", err)
+		log.Fatal("[BPF Handler]: error: failed to register socket in BPF map: ", err)
 	}
 	defer program.Unregister(0)
 
 	if debug {
-		log.Printf("[Info]: AF_XDP registered.")
+		log.Printf("[BPF Handler]: AF_XDP program registered.")
 	}
 
 	return program, xsk
 	//return nil, nil
 }
-
-// func (nl *NodeList) storeWithCheck(node common.Node) {
-// 	nl.nodes.Range(func(k, v interface{}) bool {
-// 		existingNode, ok := k.(common.Node)
-// 		if ok && existingNode.Addr == node.Addr {
-// 			fmt.Printf("Node with Addr %s already exists!\n", node.Addr)
-// 			return false
-// 		}
-// 		return true
-// 	})
-
-// 	nl.nodes.Store(node, time.Now().Unix())
-// }
 
 type MyPacket common.Packet
