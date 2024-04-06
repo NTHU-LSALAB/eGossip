@@ -71,7 +71,7 @@ func (nodeList *NodeList) Join() {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Error]:", "Please use the New() function first")
+		nodeList.println("[Control Error]:", "New() a nodeList before Join().")
 		// Directly return
 		return
 	}
@@ -88,7 +88,7 @@ func (nodeList *NodeList) Join() {
 	// Consume the information in the mq queue
 	go consume(nodeList, mq)
 
-	nodeList.println("[Join]:", nodeList.localNode)
+	nodeList.println("[Control]: Join signal for ", nodeList.localNode)
 }
 
 // Stop stops the broadcasting of heartbeat
@@ -96,12 +96,12 @@ func (nodeList *NodeList) Stop() {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Error]:", "Please use the New() function first")
+		nodeList.println("[Control Error]:", "New() a nodeList before Stop().")
 		// Return directly
 		return
 	}
 
-	nodeList.println("[Stop]:", nodeList.localNode)
+	nodeList.println("[Control]: Stop signal for ", nodeList.localNode)
 	nodeList.status.Store(false)
 }
 
@@ -110,7 +110,7 @@ func (nodeList *NodeList) Start() {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Error]:", "Please use the New() function first")
+		nodeList.println("[Control Error]:", "New() a nodeList before Start().")
 		// Return directly
 		return
 	}
@@ -120,7 +120,7 @@ func (nodeList *NodeList) Start() {
 		// Return directly
 		return
 	}
-	nodeList.println("[Start]:", nodeList.localNode)
+	nodeList.println("[Control]: Start signal for ", nodeList.localNode)
 	nodeList.status.Store(true)
 	// Periodically broadcast local node information
 	go task(nodeList)
@@ -131,7 +131,7 @@ func (nodeList *NodeList) Set(node common.Node) {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Error]:", "Please use the New() function first")
+		nodeList.println("[Control Error]:", "New() a nodeList before Set().")
 		// Return directly
 		return
 	}
@@ -155,7 +155,7 @@ func (nodeList *NodeList) Get() []common.Node {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Error]:", "Please use the New() function first")
+		nodeList.println("[Control Error]:", "New() a nodeList before Get().")
 		// Return directly
 		return nil
 	}
@@ -181,11 +181,11 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 
 	//Return if the node's local node list has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Error]:", "Please use the New() function first")
+		nodeList.println("[Control Error]:", "New() a nodeList before Publish().")
 		return
 	}
 
-	nodeList.println("[Publish]:", nodeList.localNode, "/ [Metadata]:", newMetadata)
+	nodeList.println("[Control]: Metadata Publish in", nodeList.localNode, "/ [Metadata]:", newMetadata)
 
 	// Add the local node to the infected node list
 	var infected = make(map[string]bool)
@@ -226,7 +226,7 @@ func (nodeList *NodeList) Read() []byte {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Error]:", "Please use the New() function first")
+		nodeList.println("[Control Error]:", "New() a nodeList before Read().")
 		// Directly return
 		return nil
 	}
