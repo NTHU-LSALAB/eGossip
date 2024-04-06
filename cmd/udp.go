@@ -57,7 +57,6 @@ func udpListen(nodeList *NodeList, mq chan []byte) {
 		bs := make([]byte, nodeList.Size)
 
 		// listen for UDP packets to the port
-		//start := time.Now()
 		n, _, err := conn.ReadFromUDP(bs)
 		if err != nil {
 			nodeList.println("[UDP Error]:", err)
@@ -74,18 +73,10 @@ func udpListen(nodeList *NodeList, mq chan []byte) {
 
 		// put data in to a message queue
 		mq <- b
-
-		//elapsed := time.Since(start)
-		//nodeList.println("Latency for packet: ", elapsed)
 	}
 }
 
 func xdpListen(nodeList *NodeList, mq chan []byte) {
-
-	// for i := 0; i < multipleReceiver; i++ {
-	// 	go udpprocess(mq)
-	// }
-
 	xsk := nodeList.Xsk
 
 	for {
@@ -97,10 +88,10 @@ func xdpListen(nodeList *NodeList, mq chan []byte) {
 			// frames.
 			xsk.Fill(xsk.GetDescs(n))
 		}
+
 		// Wait for receive - meaning the kernel has
 		// produced one or more descriptors filled with a received
 		// frame onto the Rx ring queue.
-		// log.Printf("waiting for frame(s) to be received...")
 		numRx, _, err := xsk.Poll(-1)
 		if err != nil {
 			fmt.Printf("error: %v\n", err)
@@ -116,7 +107,6 @@ func xdpListen(nodeList *NodeList, mq chan []byte) {
 			// broadcast address.
 			for i := 0; i < len(rxDescs); i++ {
 				pktData := xsk.GetFrame(rxDescs[i])
-				//log.Println(string(pktData))
 				mq <- pktData
 			}
 		}

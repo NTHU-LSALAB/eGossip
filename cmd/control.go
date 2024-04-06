@@ -55,8 +55,6 @@ func (nl *NodeList) StopNodeHandler() http.HandlerFunc {
 			log.Println("Error writing response")
 			return
 		}
-
-		log.Println("[Control]: Node stopped successfully.")
 	}
 }
 
@@ -79,8 +77,6 @@ func (nl *NodeList) GetMetadataHandler() http.HandlerFunc {
 		// Write JSON response
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(metadataJSON)
-
-		//log.Println("[Control]: Get local metadata successfully.")
 	}
 }
 
@@ -147,7 +143,5 @@ func (nl *NodeList) SetNodeHandler() http.HandlerFunc {
 			log.Println("Error writing response")
 			return
 		}
-
-		//log.Println("[Control]: Node list updated successfully.")
 	}
 }

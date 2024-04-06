@@ -130,7 +130,6 @@ func AttachXDP(BpfObjs *BpfObjects, Ifindex int) (*xdp.Program, error) {
 		return nil, err
 	}
 
-	//log.Printf("Attached XDP program to iface %q (index %d)", iface.Name, iface.Index)
 	return p, nil
 }
 
@@ -144,16 +143,12 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets []common.Node) error {
 			targetCount++
 		}
 	}
-	//fmt.Println("targetCount", targetCount)
 
 	if targetCount > MAX_TARGETS {
 		return fmt.Errorf("too many targets: %d", targetCount)
 	}
 
 	value.MaxCount = uint16('0' + targetCount - 1)
-	//fmt.Println("value.MaxCount", value.MaxCount)
-
-	//fmt.Println("targets: ", targets)
 
 	i := 0
 
@@ -163,8 +158,6 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets []common.Node) error {
 			break
 		}
 
-		//fmt.Println(v)
-
 		value.TargetList[i].Ip = common.IpToUint32(v.Addr)
 		value.TargetList[i].Port = uint16(v.Port)
 		value.TargetList[i].Mac = common.MacStringToInt8Array(v.Mac)
@@ -172,21 +165,8 @@ func TcPushtoMap(BpfObjs *BpfObjects, key uint16, targets []common.Node) error {
 		i++
 	}
 
-	//fmt.Println("count", i, targetCount)
-
-	//fmt.Println("BC value", value)
-
 	if err := mapRef.Put(key, value); err != nil {
 		return err
 	}
 	return nil
 }
-
-// func XdpPushToMap(BpfObjs *BpfObjects, key uint32, value int64) error {
-// 	mapRef := BpfObjs.objs.MetadataMap
-
-// 	if err := mapRef.Put(key, value); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }

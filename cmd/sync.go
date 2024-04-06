@@ -63,8 +63,6 @@ func consume(nodeList *NodeList, mq chan []byte) {
 			// 	log.Fatalf("[ERROR] DstIP is not local IP")
 			// }
 			bs[60] = byte('0')
-			//nodeList.println("Count: ", string(bs[42:65]))
-
 			bs = bs[42:] // Only need payload
 		}
 
