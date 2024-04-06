@@ -1,139 +1,223 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"fmt" // Standard library imports are grouped together.
+	"log" // Logging is crucial for both debugging and runtime monitoring.
 	"net"
 	"net/http"
-	"os"
 
+	// Networking package for handling sockets.
+	// HTTP server functionalities.
+	"os" // OS-level operations like file handling.
+
+	// Third-party imports are grouped separately.
+	// This includes all external packages not part of the standard library.
+	// Keeping standard and third-party imports separate improves readability.
 	"github.com/kerwenwwer/xdp-gossip/bpf"
 	"github.com/kerwenwwer/xdp-gossip/cmd"
 	"github.com/kerwenwwer/xdp-gossip/common"
-	"github.com/spf13/cobra"
+	"github.com/spf13/cobra" // Cobra package for CLI interactions.
 )
 
-var nodeName string
-var linkName string
-var protocol string
-var isServer bool
-var debug bool = false
+// Constants for default configuration values.
+const (
+	DefaultLinkName = "eth0"
+	DefaultProtocol = "UDP"
+	DefaultPort     = "8000" // Ports are strings in Go's http package.
+)
 
-func startServer() {
-	fmt.Printf("---------- Starting XDP Gossip node --------\n")
-	fmt.Printf("Node name: %s\n", nodeName)
-	fmt.Printf("Protocol: %s\n", protocol)
-	fmt.Printf("DEBUG: %d\n", debug)
-	fmt.Printf("--------------------------------------------\n")
+// Config struct to hold all configuration needed across the application.
+type Config struct {
+	NodeName string
+	LinkName string
+	Protocol string
+	Debug    bool
+}
 
-	// Default address
-	address := "0.0.0.0"
+func main() {
+	config := Config{} // Instantiate the config struct to hold runtime configurations.
 
-	netInterface, err := net.InterfaceByName(linkName)
+	// Initialize the root command.
+	rootCmd := &cobra.Command{
+		Use:   "eGossip",
+		Short: "Runs the esGossip application as either server or client.",
+	}
+
+	// Server command configuration.
+	serverCmd := &cobra.Command{
+		Use:   "server",
+		Short: "Starts the eGossip Server",
+		Long:  `Initializes and runs the eGossip control server for managing the gossip protocol.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := startServer(config); err != nil {
+				log.Fatalf("Failed to start server: %v", err)
+			}
+		},
+	}
+	// Flags for the server command.
+	serverCmd.Flags().StringVar(&config.NodeName, "name", "", "Node name for identifying in the network.")
+	serverCmd.Flags().StringVar(&config.LinkName, "link", DefaultLinkName, "Network link interface name.")
+	serverCmd.Flags().StringVar(&config.Protocol, "proto", DefaultProtocol, "Networking protocol (UDP/XDP).")
+	serverCmd.Flags().BoolVar(&config.Debug, "debug", false, "Enables debug mode for verbose logging.")
+
+	// Client command configuration.
+	dummyClientCmd := &cobra.Command{
+		Use:   "client",
+		Short: "Starts the eGossip Dummy Client",
+		Long:  `Launches a UDP client for testing the eGossip communication.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := startDummyClient(); err != nil {
+				log.Fatalf("Error starting the client: %v", err)
+			}
+		},
+	}
+
+	// Add server and client commands to root.
+	rootCmd.AddCommand(serverCmd, dummyClientCmd)
+
+	// Execute the root command.
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Execution error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// startServer initializes the eGossip server with the provided configuration.
+func startServer(cfg Config) error {
+	log.Println("---------- Starting eGossip node ----------")
+	log.Printf("Node name: %s", cfg.NodeName)
+	log.Printf("Protocol: %s", cfg.Protocol)
+	log.Printf("DEBUG: %t", cfg.Debug)
+	log.Println("---------------------------------------------")
+
+	address, err := findNodeAddress(cfg.LinkName)
 	if err != nil {
-		log.Println("[[Control]: Get network device error. %v]", err)
-		return
+		return fmt.Errorf("[Init]: Failed to find node address: %w", err)
 	}
 
-	addrs, err := netInterface.Addrs()
+	nodeList, err := initializeNodeList(cfg, address)
 	if err != nil {
-		log.Println("[[Control]: Get address error. %v]", err)
-		return
+		return fmt.Errorf("[Init]: Failed to initialize node list: %w", err)
 	}
 
-	for _, addr := range addrs {
-		var ip net.IP
-		switch v := addr.(type) {
-		case *net.IPNet:
-			ip = v.IP
-		case *net.IPAddr:
-			ip = v.IP
-		}
+	nodeList.Join() // Join the network.
 
-		// print out IP address
-		if ip.To4() != nil {
-			address = ip.String()
-		}
-	}
-
-	nodeList := cmd.NodeList{
-		Protocol:  protocol, // The network protocol used to connect cluster nodes
-		SecretKey: "test_key",
-	}
-
-	if debug {
-		nodeList.IsPrint = true
-		// Open a file for writing.
-		file, err := os.Create("output.txt")
-		if err != nil {
-			panic(err)
-		}
-		defer file.Close()
-
-		// Redirect standard output to the file.
-		os.Stdout = file
-	} else {
-		nodeList.IsPrint = false
-	}
-
-	/* Load BPF program */
-	if nodeList.Protocol == "XDP" {
-		obj, err := bpf.LoadObjects()
-		if err != nil {
-			log.Fatalf("[Error]:", "Failed to load objects: %v", err)
-		}
-
-		nodeList.Program = obj
-
-		l, xsk := cmd.ProgramHandler(linkName, obj, debug)
-		defer l.Close()
-		nodeList.Xsk = xsk
-	}
-
-	mac_address, err := common.GetMACAddressByInterfaceName(linkName)
-	if err != nil {
-		log.Fatal("[[Control]: Get MAC address error. %v]", err)
-	}
-
-	gatewayMAC, err := common.FindGatewayMAC(linkName)
-	if err != nil {
-		log.Fatal("[[Control]: Get gateway MAC address error. %v]", err)
-	}
-	nodeList.GatewayMAC = gatewayMAC.String()
-
-	nodeList.New(common.Node{
-		Addr:        address,
-		Port:        8000,
-		Mac:         mac_address,
-		Name:        nodeName,
-		LinkName:    linkName,
-		PrivateData: "test-data",
-	})
-
-	nodeList.Join()
-
-	// Set up the HTTP server
 	http.HandleFunc("/set", nodeList.SetNodeHandler())
 	http.HandleFunc("/list", nodeList.ListNodeHandler())
 	http.HandleFunc("/stop", nodeList.StopNodeHandler())
 	http.HandleFunc("/publish", nodeList.PublishHandler())
 	http.HandleFunc("/metadata", nodeList.GetMetadataHandler())
 
-	// Start the profile server
-	// if debug {
-	// 	cmd.NewProfileHttpServer(":9000")
-	// }
-	//defer profile.Start().Stop()
+	log.Printf("[Control]: Starting HTTP command server on TCP port 8000.")
+	if err := http.ListenAndServe(":8000", nil); err != nil {
+		return fmt.Errorf("[Control]: ListenAndServe failed: %w", err)
+	}
 
-	// Start the server
-	log.Println("[[Control]: Starting http command server in TCP port 8000.]")
-	err = http.ListenAndServe(":8000", nil)
+	return nil
+}
+
+func findNodeAddress(linkName string) (string, error) {
+	netInterface, err := net.InterfaceByName(linkName)
 	if err != nil {
-		log.Panicln("[[Control]: ListenAndServe: ", err)
+		return "", fmt.Errorf("get network device error: %w", err)
+	}
+
+	addrs, err := netInterface.Addrs()
+	if err != nil {
+		return "", fmt.Errorf("get address error: %w", err)
+	}
+
+	for _, addr := range addrs {
+		ip := getIPFromAddr(addr)
+		if ip != nil && ip.To4() != nil {
+			return ip.String(), nil
+		}
+	}
+
+	return "0.0.0.0", nil // Default address if no IPv4 address found.
+}
+
+func getIPFromAddr(addr net.Addr) net.IP {
+	switch v := addr.(type) {
+	case *net.IPNet:
+		return v.IP
+	case *net.IPAddr:
+		return v.IP
+	default:
+		return nil
 	}
 }
 
-func startClient() error {
+func initializeNodeList(cfg Config, address string) (cmd.NodeList, error) {
+	nodeList := cmd.NodeList{
+		Protocol:  cfg.Protocol,
+		SecretKey: "test_key", // Assume this is a placeholder value.
+		IsPrint:   cfg.Debug,
+	}
+
+	if cfg.Debug {
+		file, err := os.Create("debug_output.txt")
+		if err != nil {
+			return cmd.NodeList{}, fmt.Errorf("[Init.]: Failed to create debug output file: %w", err)
+		}
+		defer file.Close()
+
+		os.Stdout = file // Consider the implications of redirecting os.Stdout globally.
+	}
+
+	if cfg.Protocol == "XDP" {
+		if err := loadAndAssignBPFProgram(&nodeList, cfg.LinkName, cfg.Debug); err != nil {
+			return cmd.NodeList{}, err
+		}
+	}
+
+	if err := configureNodeList(&nodeList, cfg, address); err != nil {
+		return cmd.NodeList{}, err
+	}
+
+	return nodeList, nil
+}
+
+func loadAndAssignBPFProgram(nodeList *cmd.NodeList, linkName string, debug bool) error {
+	obj, err := bpf.LoadObjects()
+	if err != nil {
+		return fmt.Errorf("[Init.]: Failed to load BPF objects: %w", err)
+	}
+
+	nodeList.Program = obj
+	l, xsk := cmd.ProgramHandler(linkName, obj, debug)
+	defer l.Close()
+	nodeList.Xsk = xsk
+
+	return nil
+}
+
+func configureNodeList(nodeList *cmd.NodeList, cfg Config, address string) error {
+	macAddress, err := common.GetMACAddressByInterfaceName(cfg.LinkName)
+	if err != nil {
+		return fmt.Errorf("[Init.]: Get MAC address error: %w", err)
+	}
+
+	gatewayMAC, err := common.FindGatewayMAC(cfg.LinkName)
+	if err != nil {
+		return fmt.Errorf("[Init.]: Get gateway MAC address error: %w", err)
+	}
+
+	nodeList.GatewayMAC = gatewayMAC.String()
+
+	nodeList.New(common.Node{
+		Addr:        address,
+		Port:        8000, // Consider making this configurable as well.
+		Mac:         macAddress,
+		Name:        cfg.NodeName,
+		LinkName:    cfg.LinkName,
+		PrivateData: "test-data", // Placeholder, consider making this configurable or dynamically generated.
+	})
+
+	return nil
+}
+
+func startDummyClient() error {
 	// Code for starting UDP listener on port 8000
 	addr := net.UDPAddr{
 		Port: 8000,
@@ -145,7 +229,7 @@ func startClient() error {
 	}
 	defer conn.Close()
 
-	log.Println("Client is listening on UDP port 8000")
+	log.Println("[Contorl]: Client is listening on UDP port 8000")
 
 	// Buffer for reading incoming packets
 	buffer := make([]byte, 1024)
@@ -165,48 +249,5 @@ func startClient() error {
 		}
 
 		// Add additional code to handle the message if necessary
-	}
-}
-
-var rootCmd = &cobra.Command{
-	Use:   "xdp-gossip",
-	Short: "XDP Gossip Application",
-	Long:  `This application runs either as an XDP Gossip server or client.`,
-}
-
-var serverCmd = &cobra.Command{
-	Use:   "server",
-	Short: "XDP Gossip Contorl Server",
-	Long:  `A HTTP server for XDP Gossip control plane.`,
-	Run: func(coCmd *cobra.Command, args []string) {
-		startServer()
-	},
-}
-
-var clientCmd = &cobra.Command{
-	Use:   "client",
-	Short: "XDP Gossip UDP Client",
-	Long:  `A client for testing XDP Gossip communication.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := startClient(); err != nil {
-			log.Fatalf("Error starting client: %v", err)
-		}
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(serverCmd)
-	rootCmd.AddCommand(clientCmd)
-
-	serverCmd.Flags().StringVar(&nodeName, "name", "", "provide a node name.")
-	serverCmd.Flags().StringVar(&linkName, "link", "eth0", "provide a link name.")
-	serverCmd.Flags().StringVar(&protocol, "proto", "UDP", "provide a running mode.")
-	serverCmd.PersistentFlags().BoolVar(&debug, "debug", false, "debug mode, open print and profile.")
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
 	}
 }
