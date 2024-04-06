@@ -18,7 +18,7 @@
 // #define DEBUG_TC
 // #define DEBUG_XDP
 
-/* Contorl definition */
+/* Control definition */
 #define MAX_TARGETS 64 // Max targets for broadcast
 #define MAX_SIZE 200
 #define MTU 1500
@@ -68,7 +68,6 @@ struct {
   __uint(max_entries, 1024);
 } targets_map SEC(".maps"); // map for targets
 
-
 /* BPF_MAP_TYPE_HASH for nodelist (Not use for now.) */
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
@@ -76,7 +75,6 @@ struct {
   __type(value, struct targets);
   __uint(max_entries, 1024);
 } nodelist_map SEC(".maps");
-
 
 /* BPF_MAP_TYPE_HASH for metadata store (Not use for now.) */
 struct {
@@ -460,4 +458,4 @@ out:
 }
 
 // Basic license just for compiling the object code
-char __license[] SEC("license") = "GPL";
+char __license[] SEC("license") = "GPL"; 

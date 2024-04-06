@@ -229,7 +229,7 @@ func startDummyClient() error {
 	}
 	defer conn.Close()
 
-	log.Println("[Contorl]: Client is listening on UDP port 8000")
+	log.Println("[Control]: Client is listening on UDP port 8000")
 
 	// Buffer for reading incoming packets
 	buffer := make([]byte, 1024)
