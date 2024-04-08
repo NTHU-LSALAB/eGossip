@@ -9,8 +9,6 @@ import (
 	common "github.com/kerwenwwer/xdp-gossip/common"
 )
 
-//var bpfLock sync.Mutex
-
 // NodeList is a list of nodes
 type NodeList struct {
 	nodes   sync.Map // Collection of nodes (key is Node structure, value is the most recent second-level timestamp of node update)
