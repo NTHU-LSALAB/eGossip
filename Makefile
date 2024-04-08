@@ -1,22 +1,24 @@
-all: build
-docker: docker-build docker-push
+# Define variables for repeated values
+DOCKER_TAG := kerwenwwer/gossip-service:latest
 
-.PHONY: bpf/*.o 
-bpf/*.o: bpf/*.c
+# Phony targets for workflows
+.PHONY: all bpf-objects build docker-build docker-push
+
+# Default target to compile the application and build the Docker image
+all: build docker-build
+
+# Rule to generate BPF object files from C source
+bpf-objects: 
 	go generate ./bpf/
 
-.PHONY: build
-build: bpf/*.o
+# Rule to build the main application
+build: bpf-objects
 	go build -o ./bin/xdp-gossip ./main.go
 
-.PHONY: docker-build
+# Rule to build the Docker image
 docker-build:
-	docker build -t kerwenwwer/gossip-service:latest .
+	docker build -t $(DOCKER_TAG) .
 
-.PHONY: docker-push
+# Rule to push the Docker image to the repository
 docker-push:
-	docker push kerwenwwer/gossip-service:latest
-
-.PHONY: docker-up
-docker-up:
-	docker-compose up --build
+	docker push $(DOCKER_TAG)
