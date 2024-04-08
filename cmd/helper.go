@@ -31,6 +31,7 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool) (*xdp.Prog
 		log.Fatalf("[BPF Handler]: Failed to attach XDP: %v", err)
 	}
 
+	// Create AF_XDP socket
 	xsk, err := xdp.NewSocket(link.Attrs().Index, 0, &xdp.SocketOptions{
 		NumFrames:              128,
 		FrameSize:              2048,
@@ -53,7 +54,6 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool) (*xdp.Prog
 	}
 
 	return program, xsk
-	//return nil, nil
 }
 
 type MyPacket common.Packet
