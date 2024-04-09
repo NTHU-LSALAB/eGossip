@@ -9,6 +9,9 @@ import (
 	common "github.com/kerwenwwer/xdp-gossip/common"
 )
 
+const errMsgInvalidRequestMethod = "Invalid request method"
+const errMsgErrorWritingResponse = "Error writing response"
+
 /*
  * HTTP server for XDP Gossip control plane.
  */
@@ -19,7 +22,7 @@ import (
 func (nl *NodeList) ListNodeHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+			http.Error(w, errMsgInvalidRequestMethod, http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -42,7 +45,7 @@ func (nl *NodeList) ListNodeHandler() http.HandlerFunc {
 func (nl *NodeList) StopNodeHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+			http.Error(w, errMsgInvalidRequestMethod, http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -52,7 +55,7 @@ func (nl *NodeList) StopNodeHandler() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte("Node stopped successfully.\n"))
 		if err != nil {
-			log.Println("Error writing response")
+			log.Println(errMsgErrorWritingResponse)
 			return
 		}
 	}
@@ -62,7 +65,7 @@ func (nl *NodeList) StopNodeHandler() http.HandlerFunc {
 func (nl *NodeList) GetMetadataHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
-			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+			http.Error(w, errMsgInvalidRequestMethod, http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -86,7 +89,7 @@ func (nl *NodeList) GetMetadataHandler() http.HandlerFunc {
 func (nl *NodeList) PublishHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+			http.Error(w, errMsgInvalidRequestMethod, http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -104,7 +107,7 @@ func (nl *NodeList) PublishHandler() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_, err = w.Write([]byte("[Control]: Data published successfully.\n"))
 		if err != nil {
-			log.Println("Error writing response")
+			log.Println(errMsgErrorWritingResponse)
 			return
 		}
 	}
@@ -114,7 +117,7 @@ func (nl *NodeList) PublishHandler() http.HandlerFunc {
 func (nl *NodeList) SetNodeHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+			http.Error(w, errMsgInvalidRequestMethod, http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -140,7 +143,7 @@ func (nl *NodeList) SetNodeHandler() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_, err = w.Write([]byte("Node list updated successfully.\n"))
 		if err != nil {
-			log.Println("Error writing response")
+			log.Println(errMsgErrorWritingResponse)
 			return
 		}
 	}

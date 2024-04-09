@@ -7,6 +7,8 @@ import (
 	common "github.com/kerwenwwer/xdp-gossip/common"
 )
 
+const errMsgControlErrorPrefix = "[Control Error]:"
+
 // New initializes the local node list
 func (nodeList *NodeList) New(localNode common.Node) {
 
@@ -71,7 +73,7 @@ func (nodeList *NodeList) Join() {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Control Error]:", "New() a nodeList before Join().")
+		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Join().")
 		// Directly return
 		return
 	}
@@ -96,7 +98,7 @@ func (nodeList *NodeList) Stop() {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Control Error]:", "New() a nodeList before Stop().")
+		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Stop().")
 		// Return directly
 		return
 	}
@@ -110,7 +112,7 @@ func (nodeList *NodeList) Start() {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Control Error]:", "New() a nodeList before Start().")
+		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Start().")
 		// Return directly
 		return
 	}
@@ -131,7 +133,7 @@ func (nodeList *NodeList) Set(node common.Node) {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Control Error]:", "New() a nodeList before Set().")
+		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Set().")
 		// Return directly
 		return
 	}
@@ -155,7 +157,7 @@ func (nodeList *NodeList) Get() []common.Node {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Control Error]:", "New() a nodeList before Get().")
+		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Get().")
 		// Return directly
 		return nil
 	}
@@ -180,7 +182,7 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 
 	//Return if the node's local node list has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Control Error]:", "New() a nodeList before Publish().")
+		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Publish().")
 		return
 	}
 
@@ -225,7 +227,7 @@ func (nodeList *NodeList) Read() []byte {
 
 	// If the local node list of this node has not been initialized
 	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println("[Control Error]:", "New() a nodeList before Read().")
+		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Read().")
 		// Directly return
 		return nil
 	}
