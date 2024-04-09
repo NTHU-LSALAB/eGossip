@@ -165,9 +165,8 @@ func (nodeList *NodeList) Get() []common.Node {
 	nodeList.nodes.Range(func(k, v interface{}) bool {
 		//If this node has not been updated for a while, delete it
 		if v.(int64)+nodeList.Timeout < time.Now().Unix() {
-			// nodeList.nodes.Delete(k)
-			// nodeList.println("[[Timeout]:", k, "has been deleted]")
-			nodes = append(nodes, k.(common.Node))
+			nodeList.nodes.Delete(k)
+			nodeList.println("[[Timeout]:", k, "has been deleted]")
 		} else {
 			nodes = append(nodes, k.(common.Node))
 		}
