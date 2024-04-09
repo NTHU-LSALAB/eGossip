@@ -188,72 +188,139 @@ func broadcast(nodeList *NodeList, p common.Packet) {
 	}
 }
 
+// func fastBroadcast(nodeList *NodeList, p common.Packet) {
+// 	nodes := nodeList.Get()
+// 	var targetNodes []common.Node
+
+// 	// Select some uninfected nodes
+// 	i := 0
+
+// 	for _, v := range nodes {
+
+// 		// If the maximum number of pushes (Amount) has been reached
+// 		if i >= nodeList.Amount {
+// 			// Stop the broadcast
+// 			break
+// 		}
+
+// 		if v.Addr == nodeList.localNode.Addr && v.Port == nodeList.localNode.Port {
+// 			// Skip to broadcast to self
+// 			continue
+// 		}
+
+// 		// If the node has already been "infected"
+// 		if p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] {
+// 			// Skip this node
+// 			continue
+// 		}
+
+// 		p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] = true // Mark the node as infected
+// 		// Set the target node for sending
+// 		targetNode := common.Node{
+// 			Addr: v.Addr, // Set the target address
+// 			Port: v.Port, // Set the target port
+// 			Mac:  v.Mac,  // Set the target mac
+// 		}
+
+// 		// Add the node to the broadcast list
+// 		targetNodes = append(targetNodes, targetNode)
+// 		i++
+// 	}
+
+// 	if len(targetNodes) != 0 {
+// 		/* Handle atomic counter operation for map_id*/
+// 		map_id := nodeList.Counter.Next()
+// 		if map_id == 0 {
+// 			nodeList.println("[Map ID error]: map_id is 0")
+// 		}
+// 		p.Mapkey = map_id
+// 		p.Type = 1
+
+// 		if err := bpf.TcPushtoMap(nodeList.Program, map_id, targetNodes); err != nil {
+// 			nodeList.println("[TC error]:", "Failed to push to map", err)
+// 		}
+
+// 		bs, err := json.Marshal(p)
+// 		if err != nil {
+// 			nodeList.println("[Infection Error]:", err)
+// 		}
+
+// 		addr := targetNodes[0].Addr
+// 		port := targetNodes[0].Port
+
+// 		write(nodeList, addr, int(port), bs) // Send the packet
+// 	} else {
+// 		//nodeList.println("[Not target]:", "No target nodes")
+// 	}
+// }
+
 func fastBroadcast(nodeList *NodeList, p common.Packet) {
 	nodes := nodeList.Get()
 	var targetNodes []common.Node
 
-	// Select some uninfected nodes
 	i := 0
-
 	for _, v := range nodes {
-
-		// If the maximum number of pushes (Amount) has been reached
 		if i >= nodeList.Amount {
-			// Stop the broadcast
 			break
 		}
 
 		if v.Addr == nodeList.localNode.Addr && v.Port == nodeList.localNode.Port {
-			// Skip to broadcast to self
 			continue
 		}
 
-		// If the node has already been "infected"
 		if p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] {
-			// Skip this node
 			continue
 		}
 
-		p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] = true // Mark the node as infected
-		// Set the target node for sending
-		targetNode := common.Node{
-			Addr: v.Addr, // Set the target address
-			Port: v.Port, // Set the target port
-			Mac:  v.Mac,  // Set the target mac
-		}
-
-		// Add the node to the broadcast list
+		p.Infected[v.Addr+":"+strconv.Itoa(v.Port)] = true
+		targetNode := common.Node{Addr: v.Addr, Port: v.Port, Mac: v.Mac}
 		targetNodes = append(targetNodes, targetNode)
 		i++
 	}
 
-	//nodeList.println("[Broadcast]:", len(targetNodes))
-
-	if len(targetNodes) != 0 {
-		/* Handle atomic counter operation for map_id*/
-		map_id := nodeList.Counter.Next()
-		if map_id == 0 {
-			nodeList.println("[Map ID error]: map_id is 0")
+	// Function to split targetNodes into smaller slices if more than 25 nodes
+	splitNodes := func(nodes []common.Node, size int) [][]common.Node {
+		var chunks [][]common.Node
+		for size < len(nodes) {
+			nodes, chunks = nodes[size:], append(chunks, nodes[0:size:size])
 		}
-		p.Mapkey = map_id
-		p.Type = 1
-
-		if err := bpf.TcPushtoMap(nodeList.Program, map_id, targetNodes); err != nil {
-			nodeList.println("[TC error]:", "Failed to push to map", err)
-		}
-
-		bs, err := json.Marshal(p)
-		if err != nil {
-			nodeList.println("[Infection Error]:", err)
-		}
-
-		addr := targetNodes[0].Addr
-		port := targetNodes[0].Port
-
-		write(nodeList, addr, int(port), bs) // Send the packet
-	} else {
-		//nodeList.println("[Not target]:", "No target nodes")
+		chunks = append(chunks, nodes)
+		return chunks
 	}
+
+	// Handling targetNodes exceeding 25 nodes
+	if len(targetNodes) > 25 {
+		nodeGroups := splitNodes(targetNodes, 25)
+
+		for _, group := range nodeGroups {
+			sendGroup(nodeList, group, p)
+		}
+	} else if len(targetNodes) != 0 {
+		sendGroup(nodeList, targetNodes, p)
+	}
+}
+
+// sendGroup handles sending a packet to a group of nodes
+func sendGroup(nodeList *NodeList, nodes []common.Node, p common.Packet) {
+	map_id := nodeList.Counter.Next()
+	if map_id == 0 {
+		nodeList.println("[Map ID error]: map_id is 0")
+	}
+	p.Mapkey = map_id
+	p.Type = 1
+
+	if err := bpf.TcPushtoMap(nodeList.Program, map_id, nodes); err != nil {
+		nodeList.println("[TC error]:", "Failed to push to map", err)
+	}
+
+	bs, err := json.Marshal(p)
+	if err != nil {
+		nodeList.println("[Infection Error]:", err)
+	}
+
+	addr := nodes[0].Addr
+	port := nodes[0].Port
+	write(nodeList, addr, int(port), bs) // Send the packet to each node in the group
 }
 
 // Initiate a data exchange request between two nodes
