@@ -10,7 +10,7 @@ import (
 )
 
 // New initializes the local node list
-func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool) (*xdp.Program, *xdp.Socket) {
+func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool, mode int) (*xdp.Program, *xdp.Socket) {
 	// Get netlink by name
 	link, err := netlink.LinkByName(LinkName)
 	if err != nil {
@@ -25,6 +25,12 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool) (*xdp.Prog
 	if debug {
 		log.Printf("[BPF Handler]: TC program attached. ")
 	}
+
+	// If mode is 0, return program only (no need to create AF_XDP socket)
+	if mode == 0 {
+		return nil, nil
+	}
+
 	//Attach XDP program
 	program, err := bpf.AttachXDP(obj, link.Attrs().Index)
 	if err != nil {

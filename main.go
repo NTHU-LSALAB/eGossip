@@ -57,7 +57,7 @@ func main() {
 	// Flags for the server command.
 	serverCmd.Flags().StringVar(&config.NodeName, "name", "", "Node name for identifying in the network.")
 	serverCmd.Flags().StringVar(&config.LinkName, "link", DefaultLinkName, "Network link interface name.")
-	serverCmd.Flags().StringVar(&config.Protocol, "proto", DefaultProtocol, "Networking protocol (UDP/XDP).")
+	serverCmd.Flags().StringVar(&config.Protocol, "proto", DefaultProtocol, "Networking protocol (UDP/TC/XDP).")
 	serverCmd.Flags().BoolVar(&config.Debug, "debug", false, "Enables debug mode for verbose logging.")
 
 	// Client command configuration.
@@ -166,7 +166,11 @@ func initializeNodeList(cfg Config, address string) (cmd.NodeList, error) {
 	}
 
 	if cfg.Protocol == "XDP" {
-		if err := loadAndAssignBPFProgram(&nodeList, cfg.LinkName, cfg.Debug); err != nil {
+		if err := loadAndAssignBPFProgram(&nodeList, cfg.LinkName, cfg.Debug, 1); err != nil {
+			return cmd.NodeList{}, err
+		}
+	} else if cfg.Protocol == "TC" {
+		if err := loadAndAssignBPFProgram(&nodeList, cfg.LinkName, cfg.Debug, 0); err != nil {
 			return cmd.NodeList{}, err
 		}
 	}
@@ -178,17 +182,18 @@ func initializeNodeList(cfg Config, address string) (cmd.NodeList, error) {
 	return nodeList, nil
 }
 
-func loadAndAssignBPFProgram(nodeList *cmd.NodeList, linkName string, debug bool) error {
+func loadAndAssignBPFProgram(nodeList *cmd.NodeList, linkName string, debug bool, mode int) error {
 	obj, err := bpf.LoadObjects()
 	if err != nil {
 		return fmt.Errorf("[Init.]: Failed to load BPF objects: %w", err)
 	}
 
 	nodeList.Program = obj
-	l, xsk := cmd.ProgramHandler(linkName, obj, debug)
-	defer l.Close()
+	l, xsk := cmd.ProgramHandler(linkName, obj, debug, mode)
+	if l != nil {
+		defer l.Close()
+	}
 	nodeList.Xsk = xsk
-
 	return nil
 }
 
