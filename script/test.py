@@ -7,6 +7,12 @@ import subprocess
 import json
 import argparse
 
+from kubernetes import client, config
+
+# Kubernetes deployment configuration -> default name (check k8s/deployment.yaml)
+namespace = "gossip"
+label_selector = "app=gossip-service"
+
 # Declare NODES and results as a global variable
 NODES = []
 results = []
@@ -21,10 +27,22 @@ def execute_command(command):
         raise Exception(f"Command failed: {stderr.decode('utf-8')}")
 
 # Function to extract IP addresses from kubectl output
-def get_ip_addresses():
-    command = "kubectl get pods -n gossip -l app=gossip-service -o wide | awk '{if(NR>1) print $6}'"
-    output = execute_command(command)
-    return output.splitlines()
+def get_ip_addresses(namespace, label_selector):
+    # Load Kubernetes configuration, this function is not needed if your environment is already configured for Kubernetes
+    # If running inside the cluster or already configured via kubectl, configuration is usually loaded automatically
+    config.load_kube_config()
+
+    # Create Kubernetes CoreV1Api object
+    api = client.CoreV1Api()
+
+    # Use the api to get a list of Pods in the specified Namespace and with the specified Label Selector
+    pods = api.list_namespaced_pod(namespace, label_selector=label_selector)
+
+    ips = []
+    for pod in pods.items:
+        ips.append(pod.status.pod_ip)
+
+    return ips
 
 # Function to extract IP addresses from kubectl output
 def random_metadata_string(length=200):
@@ -38,9 +56,6 @@ def send_metadata_update(node_url, metadata):
     data = {"test-meta": metadata}
     requests.post(f"{node_url}/publish", headers=headers, json=data)
 
-# Function to run the shell script
-def run_shell_script():
-    subprocess.run(["./strace.sh"])
 
 # Function to generate metadata updates
 def metadata_update(node_list):
@@ -61,7 +76,7 @@ def metadata_update_fix(node_list):
 
 def test_configurations():
     # Retrieve the IP addresses
-    ip_addresses = get_ip_addresses()
+    ip_addresses = get_ip_addresses(namespace, label_selector)
 
     for ip in ip_addresses:
         # Construct the curl command
@@ -84,7 +99,7 @@ def test_configurations():
 # Function to configure the servers
 def configure_servers():
     # Retrieve the IP addresses
-    ip_addresses = get_ip_addresses()
+    ip_addresses = get_ip_addresses(namespace, label_selector)
 
     for ip in ip_addresses:
         # Construct the curl command
@@ -121,7 +136,7 @@ def configure_servers():
 
 # Count the list length in the gossip node
 def count_list_length():
-    ip_addresses = get_ip_addresses()
+    ip_addresses = get_ip_addresses(namespace, label_selector)
     for i in ip_addresses:
         url = f"http://{i}:8000/list"
         try:
@@ -158,7 +173,7 @@ def main():
     elif args.configure:
         configure_servers()
     elif args.bench:
-        ip_list = get_ip_addresses()
+        ip_list = get_ip_addresses(namespace, label_selector)
         # print(ip_list[0])
         # process1 = multiprocessing.Process(target=metadata_update, args=(["http://"+ip_list[0]+":8000"],))        
         
@@ -171,18 +186,19 @@ def main():
     elif args.get_list:
         count_list_length()
     elif args.bench_fix:
-        ip_list = get_ip_addresses()
+        ip_list = get_ip_addresses(namespace, label_selector)
         # metadata_update_fix(["http://"+ip_list[0]+":8000"])
         process1 = multiprocessing.Process(target=metadata_update_fix, args=(["http://"+ip_list[0]+":8000"],))      
-        process2 = multiprocessing.Process(target=metadata_update_fix, args=(["http://"+ip_list[1]+":8000"],))
-        process3 = multiprocessing.Process(target=metadata_update_fix, args=(["http://"+ip_list[2]+":8000"],))    
+        #process2 = multiprocessing.Process(target=metadata_update_fix, args=(["http://"+ip_list[0]+":8000"],))
+        #process3 = multiprocessing.Process(target=metadata_update_fix, args=(["http://"+ip_list[0]+":8000"],))    
 
         process1.start()
-        process2.start()
-        process3.start()
+        #process2.start()
+        #process3.start()
+        
         process1.join()
-        process2.join()
-        process3.join()
+        #process2.join()
+        #process3.join()
     else:
         print("No arguments given")
 
