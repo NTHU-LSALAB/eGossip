@@ -126,7 +126,7 @@ func (nodeList *NodeList) Join() {
 	// Consume the information in the mq queue
 	go consume(nodeList, mq)
 
-	nodeList.Logger.Sugar().Panicln("[Control]: Join signal for ", nodeList.LocalNode)
+	nodeList.Logger.Sugar().Infoln("[Control]: Join signal for ", nodeList.LocalNode)
 }
 
 // Stop stops the broadcasting of heartbeat
@@ -139,7 +139,7 @@ func (nodeList *NodeList) Stop() {
 		return
 	}
 
-	nodeList.Logger.Sugar().Panicln("[Control]: Stop signal for ", nodeList.LocalNode)
+	nodeList.Logger.Sugar().Infoln("[Control]: Stop signal for ", nodeList.LocalNode)
 	nodeList.status.Store(false)
 }
 
@@ -158,7 +158,7 @@ func (nodeList *NodeList) Start() {
 		// Return directly
 		return
 	}
-	nodeList.Logger.Sugar().Panicln("[Control]: Start signal for ", nodeList.LocalNode)
+	nodeList.Logger.Sugar().Infoln("[Control]: Start signal for ", nodeList.LocalNode)
 	nodeList.status.Store(true)
 	// Periodically broadcast local node information
 	go task(nodeList)
@@ -204,7 +204,7 @@ func (nodeList *NodeList) Get() []common.Node {
 		//If this node has not been updated for a while, delete it
 		if v.(int64)+nodeList.Timeout < time.Now().Unix() {
 			nodeList.nodes.Delete(k)
-			nodeList.Logger.Sugar().Panicln("[[Timeout]:", k, "has been deleted]")
+			nodeList.Logger.Sugar().Warnln("[[Timeout]:", k, "has been deleted]")
 		} else {
 			nodes = append(nodes, k.(common.Node))
 		}
@@ -222,7 +222,7 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 		return
 	}
 
-	nodeList.Logger.Sugar().Panicln("[Control]: Metadata Publish in", nodeList.LocalNode, "/ [Metadata]:", newMetadata)
+	nodeList.Logger.Sugar().Infoln("[Control]: Metadata Publish in", nodeList.LocalNode, "/ [Metadata]:", newMetadata)
 
 	// Add the local node to the infected node list
 	var infected = make(map[string]bool)

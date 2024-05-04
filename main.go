@@ -13,9 +13,11 @@ import (
 	// Third-party imports are grouped separately.
 	// This includes all external packages not part of the standard library.
 	// Keeping standard and third-party imports separate improves readability.
+	"github.com/kerwenwwer/eGossip/modules/helper"
 	nd "github.com/kerwenwwer/eGossip/modules/nodeList"
 	"github.com/kerwenwwer/eGossip/pkg/bpf"
 	"github.com/kerwenwwer/eGossip/pkg/common"
+	logger "github.com/kerwenwwer/eGossip/pkg/logger"
 	"github.com/spf13/cobra" // Cobra package for CLI interactions.
 )
 
@@ -99,6 +101,8 @@ func startServer(cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("[Init]: Failed to initialize node list: %w", err)
 	}
+
+	nodeList.Logger = logger.NewLogger(&logger.LoggerConfig{Development: true})
 
 	nodeList.Join() // Join the network.
 
@@ -189,7 +193,7 @@ func loadAndAssignBPFProgram(nodeList *nd.NodeList, linkName string, debug bool,
 	}
 
 	nodeList.Program = obj
-	l, xsk := common.ProgramHandler(linkName, obj, debug, mode)
+	l, xsk := helper.ProgramHandler(linkName, obj, debug, mode)
 	if l != nil {
 		defer l.Close()
 	}

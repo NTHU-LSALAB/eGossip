@@ -9,7 +9,7 @@ all: build docker-build
 
 # Rule to generate BPF object files from C source
 bpf-objects: 
-	go generate ./bpf/
+	go generate ./pkg/bpf/
 
 # Rule to build the main application
 build: bpf-objects

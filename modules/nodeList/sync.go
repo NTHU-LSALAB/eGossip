@@ -2,7 +2,6 @@ package nodeList
 
 import (
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -131,7 +130,7 @@ func processRegularPacket(nodeList *NodeList, p common.Packet) {
 	nodeList.Set(node)
 	if p.IsUpdate {
 		nodeList.metadata.Store(p.Metadata)
-		nodeList.Logger.Sugar().Panicln("[Metadata]: Recv new node metadata, node info:", nodeList.LocalNode.Addr+":"+strconv.Itoa(nodeList.LocalNode.Port))
+		nodeList.Logger.Sugar().Infoln("[Metadata]: Recv new node metadata, node info:", nodeList.LocalNode.Addr+":"+strconv.Itoa(nodeList.LocalNode.Port))
 	}
 	broadcast(nodeList, p)
 }
@@ -184,7 +183,7 @@ func broadcast(nodeList *NodeList, p common.Packet) {
 	for _, v := range targetNodes {
 		bs, err := json.Marshal(p)
 		if err != nil {
-			nodeList.Logger.Sugar().Panic("[Infection Error]:", err)
+			nodeList.Logger.Sugar().Panicln("[Infection Error]:", err)
 		}
 
 		// Send the packet
@@ -335,6 +334,6 @@ func listen(nodeList *NodeList, mq chan []byte) {
 	} else if nodeList.Protocol == "XDP" {
 		transport.XdpListen(nodeList.Xsk, mq)
 	} else {
-		fmt.Println("Protocol not supported, only UDP, TC and XDP.")
+		nodeList.Logger.Sugar().Panicln("Protocol not supported, only UDP, TC and XDP.")
 	}
 }

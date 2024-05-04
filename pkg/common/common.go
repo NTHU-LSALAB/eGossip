@@ -169,8 +169,17 @@ func getGatewayIP() (net.IP, error) {
 	return nil, fmt.Errorf("No default gateway found")
 }
 
+// Convert an IPv4-mapped IPv6 address to IPv4 if necessary
+func convertIPv4MappedIPv6ToIPv4(addr netip.Addr) netip.Addr {
+	if addr.Is4In6() {
+		v4Addr := addr.As4()
+		return netip.AddrFrom4(v4Addr)
+	}
+	return addr
+}
+
 func FindGatewayMAC(interfaceName string) (net.HardwareAddr, error) {
-	gatewayIP, err := getGatewayIP() // Assuming getGatewayIP returns net.IP, handle its error properly
+	gatewayIP, err := getGatewayIP() // getGatewayIP must return net.IP and handle its error
 	if err != nil {
 		return nil, fmt.Errorf("fail to get gateway IP: %v", err)
 	}
@@ -191,6 +200,9 @@ func FindGatewayMAC(interfaceName string) (net.HardwareAddr, error) {
 	if !ok {
 		return nil, fmt.Errorf("invalid IP address: %v", gatewayIP)
 	}
+
+	// Check for IPv4 mapped in IPv6 and convert if necessary
+	gatewayAddr = convertIPv4MappedIPv6ToIPv4(gatewayAddr)
 
 	mac, err := client.Resolve(gatewayAddr)
 	if err != nil {

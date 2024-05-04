@@ -18,7 +18,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*  # This command removes the apt cache
 
 # Copy necessary files from the host to the container filesystem
-COPY bpf/* /bpf/
+COPY pkg/bpf/* /bpf/
 COPY bin/xdp-gossip /usr/local/bin/xdp-gossip
 COPY k8s/entrypoint.sh /entrypoint.sh
 
