@@ -1,4 +1,4 @@
-package cmd
+package encrypt
 
 import (
 	"crypto/md5"
@@ -7,7 +7,7 @@ import (
 )
 
 // md5 encpyt
-func md5Sign(str string) string {
+func Md5Sign(str string) string {
 	w := md5.New()
 	io.WriteString(w, str)
 	md5Str := fmt.Sprintf("%x", w.Sum(nil))

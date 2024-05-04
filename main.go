@@ -13,9 +13,9 @@ import (
 	// Third-party imports are grouped separately.
 	// This includes all external packages not part of the standard library.
 	// Keeping standard and third-party imports separate improves readability.
-	"github.com/kerwenwwer/xdp-gossip/bpf"
-	"github.com/kerwenwwer/xdp-gossip/cmd"
-	"github.com/kerwenwwer/xdp-gossip/common"
+	nd "github.com/kerwenwwer/eGossip/modules/nodeList"
+	"github.com/kerwenwwer/eGossip/pkg/bpf"
+	"github.com/kerwenwwer/eGossip/pkg/common"
 	"github.com/spf13/cobra" // Cobra package for CLI interactions.
 )
 
@@ -148,8 +148,8 @@ func getIPFromAddr(addr net.Addr) net.IP {
 	}
 }
 
-func initializeNodeList(cfg Config, address string) (cmd.NodeList, error) {
-	nodeList := cmd.NodeList{
+func initializeNodeList(cfg Config, address string) (nd.NodeList, error) {
+	nodeList := nd.NodeList{
 		Protocol:  cfg.Protocol,
 		SecretKey: "test_key", // Assume this is a placeholder value.
 		IsPrint:   cfg.Debug,
@@ -158,7 +158,7 @@ func initializeNodeList(cfg Config, address string) (cmd.NodeList, error) {
 	if cfg.Debug {
 		file, err := os.Create("debug_output.txt")
 		if err != nil {
-			return cmd.NodeList{}, fmt.Errorf("[Init.]: Failed to create debug output file: %w", err)
+			return nd.NodeList{}, fmt.Errorf("[Init.]: Failed to create debug output file: %w", err)
 		}
 		defer file.Close()
 
@@ -167,29 +167,29 @@ func initializeNodeList(cfg Config, address string) (cmd.NodeList, error) {
 
 	if cfg.Protocol == "XDP" {
 		if err := loadAndAssignBPFProgram(&nodeList, cfg.LinkName, cfg.Debug, 1); err != nil {
-			return cmd.NodeList{}, err
+			return nd.NodeList{}, err
 		}
 	} else if cfg.Protocol == "TC" {
 		if err := loadAndAssignBPFProgram(&nodeList, cfg.LinkName, cfg.Debug, 0); err != nil {
-			return cmd.NodeList{}, err
+			return nd.NodeList{}, err
 		}
 	}
 
 	if err := configureNodeList(&nodeList, cfg, address); err != nil {
-		return cmd.NodeList{}, err
+		return nd.NodeList{}, err
 	}
 
 	return nodeList, nil
 }
 
-func loadAndAssignBPFProgram(nodeList *cmd.NodeList, linkName string, debug bool, mode int) error {
+func loadAndAssignBPFProgram(nodeList *nd.NodeList, linkName string, debug bool, mode int) error {
 	obj, err := bpf.LoadObjects()
 	if err != nil {
 		return fmt.Errorf("[Init.]: Failed to load BPF objects: %w", err)
 	}
 
 	nodeList.Program = obj
-	l, xsk := cmd.ProgramHandler(linkName, obj, debug, mode)
+	l, xsk := common.ProgramHandler(linkName, obj, debug, mode)
 	if l != nil {
 		defer l.Close()
 	}
@@ -197,7 +197,7 @@ func loadAndAssignBPFProgram(nodeList *cmd.NodeList, linkName string, debug bool
 	return nil
 }
 
-func configureNodeList(nodeList *cmd.NodeList, cfg Config, address string) error {
+func configureNodeList(nodeList *nd.NodeList, cfg Config, address string) error {
 	macAddress, err := common.GetMACAddressByInterfaceName(cfg.LinkName)
 	if err != nil {
 		return fmt.Errorf("[Init.]: Get MAC address error: %w", err)

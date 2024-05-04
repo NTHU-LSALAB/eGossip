@@ -4,7 +4,7 @@ metadata:
   name: gossip-service
   namespace: gossip
 spec:
-  replicas: 15
+  replicas: 60
   selector:
     matchLabels:
       app: gossip-service

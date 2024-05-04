@@ -1,11 +1,47 @@
-package cmd
+package nodeList
 
 import (
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 
-	common "github.com/kerwenwwer/xdp-gossip/common"
+	"github.com/asavie/xdp"
+	"github.com/kerwenwwer/eGossip/modules/encrypt"
+	bpf "github.com/kerwenwwer/eGossip/pkg/bpf"
+	common "github.com/kerwenwwer/eGossip/pkg/common"
+	logger "github.com/kerwenwwer/eGossip/pkg/logger"
 )
+
+// NodeList is a list of nodes
+type NodeList struct {
+	nodes   sync.Map // Collection of nodes (key is Node structure, value is the most recent second-level timestamp of node update)
+	Amount  int      // Number of nodes to send synchronization information to at one time
+	Cycle   int64    // Synchronization cycle (how many seconds to send list synchronization information to other nodes)
+	Buffer  int      // UDP/TCP receive buffer size (determines how many requests the UDP/TCP listening service can process asynchronously)
+	Size    int      // Maximum capacity of a single UDP/TCP heartbeat packet (in bytes)
+	Timeout int64    // Expiry deletion limit for a single node (delete after how many seconds)
+
+	SecretKey string // Cluster key, the keys of all nodes in the same cluster should be consistent
+
+	LocalNode common.Node // Local node information
+
+	Protocol   string // Network protocol used by the cluster connection, UDP or TCP, XDP(UDP based with ebpf feature) default is UDP
+	ListenAddr string // Local UDP/TCP listening address, use this address to receive heartbeat packets from other nodes (usually 0.0.0.0 is sufficient)
+
+	status atomic.Value // Status of local node list update (true: running normally, false: stop publishing heartbeat)
+
+	IsPrint bool // Whether to print list synchronization information to the console
+
+	metadata atomic.Value // Metadata, the metadata content of each node in the cluster is consistent, equivalent to the public data of the cluster (can store some common configuration information), can update the metadata content of each node through broadcasting
+
+	Program *bpf.BpfObjects       // bpf program
+	Xsk     *xdp.Socket           // xdp socket
+	Counter *common.AtomicCounter // bpf program key counter
+
+	GatewayMAC string // gateway mac address
+	Logger     *logger.Logger
+}
 
 const errMsgControlErrorPrefix = "[Control Error]:"
 
@@ -44,17 +80,17 @@ func (nodeList *NodeList) New(localNode common.Node) {
 
 	// Timeout default value: if the current Timeout is less than or equal to Cycle, then automatically enlarge the value of Timeout
 	if nodeList.Timeout <= nodeList.Cycle {
-		nodeList.Timeout = nodeList.Cycle*3 + 2
+		nodeList.Timeout = nodeList.Cycle*5 + 2
 	}
 
 	// If the key setting is not empty, then encrypt the key with md5
 	if nodeList.SecretKey != "" {
-		nodeList.SecretKey = md5Sign(nodeList.SecretKey)
+		nodeList.SecretKey = encrypt.Md5Sign(nodeList.SecretKey)
 	}
 
 	// Initialize the basic data of the local node list
 	nodeList.nodes.Store(localNode, time.Now().Unix()) // Add local node information into the node collection
-	nodeList.localNode = localNode                     // Initialize local node information
+	nodeList.LocalNode = localNode                     // Initialize local node information
 	nodeList.status.Store(true)                        // Initialize node service status
 
 	// Set metadata information
@@ -72,8 +108,8 @@ func (nodeList *NodeList) New(localNode common.Node) {
 func (nodeList *NodeList) Join() {
 
 	// If the local node list of this node has not been initialized
-	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Join().")
+	if len(nodeList.LocalNode.Addr) == 0 {
+		nodeList.Logger.Sugar().Panicln(errMsgControlErrorPrefix, "New() a nodeList before Join().")
 		// Directly return
 		return
 	}
@@ -90,20 +126,20 @@ func (nodeList *NodeList) Join() {
 	// Consume the information in the mq queue
 	go consume(nodeList, mq)
 
-	nodeList.println("[Control]: Join signal for ", nodeList.localNode)
+	nodeList.Logger.Sugar().Panicln("[Control]: Join signal for ", nodeList.LocalNode)
 }
 
 // Stop stops the broadcasting of heartbeat
 func (nodeList *NodeList) Stop() {
 
 	// If the local node list of this node has not been initialized
-	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Stop().")
+	if len(nodeList.LocalNode.Addr) == 0 {
+		nodeList.Logger.Sugar().Panicln(errMsgControlErrorPrefix, "New() a nodeList before Stop().")
 		// Return directly
 		return
 	}
 
-	nodeList.println("[Control]: Stop signal for ", nodeList.localNode)
+	nodeList.Logger.Sugar().Panicln("[Control]: Stop signal for ", nodeList.LocalNode)
 	nodeList.status.Store(false)
 }
 
@@ -111,8 +147,8 @@ func (nodeList *NodeList) Stop() {
 func (nodeList *NodeList) Start() {
 
 	// If the local node list of this node has not been initialized
-	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Start().")
+	if len(nodeList.LocalNode.Addr) == 0 {
+		nodeList.Logger.Sugar().Panicln(errMsgControlErrorPrefix, "New() a nodeList before Start().")
 		// Return directly
 		return
 	}
@@ -122,7 +158,7 @@ func (nodeList *NodeList) Start() {
 		// Return directly
 		return
 	}
-	nodeList.println("[Control]: Start signal for ", nodeList.localNode)
+	nodeList.Logger.Sugar().Panicln("[Control]: Start signal for ", nodeList.LocalNode)
 	nodeList.status.Store(true)
 	// Periodically broadcast local node information
 	go task(nodeList)
@@ -132,14 +168,14 @@ func (nodeList *NodeList) Start() {
 func (nodeList *NodeList) Set(node common.Node) {
 
 	// If the local node list of this node has not been initialized
-	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Set().")
+	if len(nodeList.LocalNode.Addr) == 0 {
+		nodeList.Logger.Sugar().Panicln(errMsgControlErrorPrefix, "New() a nodeList before Set().")
 		// Return directly
 		return
 	}
 
 	// If new node has different subnet, set mac address to gateway mac
-	samesub, _ := common.IsSameSubnet(node.Addr, nodeList.localNode.Addr, "255.255.255.0")
+	samesub, _ := common.IsSameSubnet(node.Addr, nodeList.LocalNode.Addr, "255.255.255.0")
 	if !samesub {
 		node.Mac = nodeList.GatewayMAC
 	}
@@ -156,8 +192,8 @@ func (nodeList *NodeList) Set(node common.Node) {
 func (nodeList *NodeList) Get() []common.Node {
 
 	// If the local node list of this node has not been initialized
-	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Get().")
+	if len(nodeList.LocalNode.Addr) == 0 {
+		nodeList.Logger.Sugar().Panicln(errMsgControlErrorPrefix, "New() a nodeList before Get().")
 		// Return directly
 		return nil
 	}
@@ -168,7 +204,7 @@ func (nodeList *NodeList) Get() []common.Node {
 		//If this node has not been updated for a while, delete it
 		if v.(int64)+nodeList.Timeout < time.Now().Unix() {
 			nodeList.nodes.Delete(k)
-			nodeList.println("[[Timeout]:", k, "has been deleted]")
+			nodeList.Logger.Sugar().Panicln("[[Timeout]:", k, "has been deleted]")
 		} else {
 			nodes = append(nodes, k.(common.Node))
 		}
@@ -181,19 +217,19 @@ func (nodeList *NodeList) Get() []common.Node {
 func (nodeList *NodeList) Publish(newMetadata []byte) {
 
 	//Return if the node's local node list has not been initialized
-	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Publish().")
+	if len(nodeList.LocalNode.Addr) == 0 {
+		nodeList.Logger.Sugar().Infoln(errMsgControlErrorPrefix, "New() a nodeList before Publish().")
 		return
 	}
 
-	nodeList.println("[Control]: Metadata Publish in", nodeList.localNode, "/ [Metadata]:", newMetadata)
+	nodeList.Logger.Sugar().Panicln("[Control]: Metadata Publish in", nodeList.LocalNode, "/ [Metadata]:", newMetadata)
 
 	// Add the local node to the infected node list
 	var infected = make(map[string]bool)
-	infected[nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port)] = true
+	infected[nodeList.LocalNode.Addr+":"+strconv.Itoa(nodeList.LocalNode.Port)] = true
 
 	// Update local node info
-	nodeList.Set(nodeList.localNode)
+	nodeList.Set(nodeList.LocalNode)
 
 	// Set new metadata
 	md := common.Metadata{
@@ -207,7 +243,7 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 
 	// // Set packet
 	p := common.Packet{
-		Node:     nodeList.localNode,
+		Node:     nodeList.LocalNode,
 		Infected: infected,
 
 		// Set the packet as metadata update packet
@@ -226,8 +262,8 @@ func (nodeList *NodeList) Publish(newMetadata []byte) {
 func (nodeList *NodeList) Read() []byte {
 
 	// If the local node list of this node has not been initialized
-	if len(nodeList.localNode.Addr) == 0 {
-		nodeList.println(errMsgControlErrorPrefix, "New() a nodeList before Read().")
+	if len(nodeList.LocalNode.Addr) == 0 {
+		nodeList.Logger.Sugar().Panicln(errMsgControlErrorPrefix, "New() a nodeList before Read().")
 		// Directly return
 		return nil
 	}

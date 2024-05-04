@@ -9,7 +9,7 @@ import (
 	"github.com/asavie/xdp"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/ebpf"
-	common "github.com/kerwenwwer/xdp-gossip/common"
+	common "github.com/kerwenwwer/eGossip/pkg/common"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )

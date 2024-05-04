@@ -18,7 +18,7 @@ NODES = []
 results = []
 
 # Function to execute a shell command and return its output
-def execute_command(command):
+def execute_shell_command(command):
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     if process.returncode == 0:
@@ -58,21 +58,19 @@ def send_metadata_update(node_url, metadata):
 
 
 # Function to generate metadata updates
-def metadata_update(node_list):
+def metadata_update(node_list, update_count=1500000):
     while True:
-        for _ in range(1500000):
+        for _ in range(update_count):
             node = random.choice(node_list)  # Choose a node for update
             metadata = random_metadata_string()
             send_metadata_update(node, metadata)
-            time.sleep(1/1500000 * 60)  # Spread out the 150 updates over one minute
+            time.sleep(1/update_count * 60)  # Spread out the 150 updates over one minute
 
-def metadata_update_fix(node_list):
-    update_count = 25000  
+def metadata_update_fix(node_list, update_count=25000):
     for _ in range(update_count):
         node = random.choice(node_list)  
         metadata = random_metadata_string() 
         send_metadata_update(node, metadata)
-        #time.sleep(0.001) 
 
 def test_configurations():
     # Retrieve the IP addresses
@@ -83,7 +81,7 @@ def test_configurations():
         curl_command = f"curl http://{ip}:8000/list"
         
         try:
-            curl_output = execute_command(curl_command)
+            curl_output = execute_shell_command(curl_command)
 
             parsed_output = json.loads(curl_output)
             desired_data = parsed_output[0]
@@ -106,7 +104,7 @@ def configure_servers():
         curl_command = f"curl http://{ip}:8000/list"
         
         try:
-            curl_output = execute_command(curl_command)
+            curl_output = execute_shell_command(curl_command)
 
             parsed_output = json.loads(curl_output)
             desired_data = parsed_output[0]

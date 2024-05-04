@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/netip"
 	"os/exec"
 	"strings"
 	"sync/atomic"
@@ -169,26 +170,31 @@ func getGatewayIP() (net.IP, error) {
 }
 
 func FindGatewayMAC(interfaceName string) (net.HardwareAddr, error) {
-
-	gatewayIP, err := getGatewayIP()
+	gatewayIP, err := getGatewayIP() // Assuming getGatewayIP returns net.IP, handle its error properly
 	if err != nil {
-		fmt.Println("Fail to get gateway IP", err)
+		return nil, fmt.Errorf("fail to get gateway IP: %v", err)
 	}
 
 	iface, err := net.InterfaceByName(interfaceName)
 	if err != nil {
-		return nil, fmt.Errorf("Fail to open interface %s: %v", interfaceName, err)
+		return nil, fmt.Errorf("fail to open interface %s: %v", interfaceName, err)
 	}
 
 	client, err := arp.Dial(iface)
 	if err != nil {
-		return nil, fmt.Errorf("Fail to create arp client: %v", err)
+		return nil, fmt.Errorf("fail to create ARP client: %v", err)
 	}
 	defer client.Close()
 
-	mac, err := client.Resolve(gatewayIP)
+	// Convert net.IP to netip.Addr
+	gatewayAddr, ok := netip.AddrFromSlice(gatewayIP)
+	if !ok {
+		return nil, fmt.Errorf("invalid IP address: %v", gatewayIP)
+	}
+
+	mac, err := client.Resolve(gatewayAddr)
 	if err != nil {
-		return nil, fmt.Errorf("Fail to reslove %v: %v", gatewayIP, err)
+		return nil, fmt.Errorf("fail to resolve %v: %v", gatewayAddr, err)
 	}
 
 	return mac, nil

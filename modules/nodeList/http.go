@@ -1,4 +1,4 @@
-package cmd
+package nodeList
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	common "github.com/kerwenwwer/xdp-gossip/common"
+	common "github.com/kerwenwwer/eGossip/pkg/common"
 )
 
 const errMsgInvalidRequestMethod = "Invalid request method"

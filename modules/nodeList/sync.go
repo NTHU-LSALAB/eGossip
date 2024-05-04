@@ -1,12 +1,14 @@
-package cmd
+package nodeList
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
-	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
-	common "github.com/kerwenwwer/xdp-gossip/common"
+	bpf "github.com/kerwenwwer/eGossip/pkg/bpf"
+	common "github.com/kerwenwwer/eGossip/pkg/common"
+	transport "github.com/kerwenwwer/eGossip/pkg/transport"
 )
 
 // Periodic heartbeat broadcast task
@@ -19,14 +21,14 @@ func task(nodeList *NodeList) {
 
 		// Add the local node to the list of infected nodes
 		var infected = make(map[string]bool)
-		infected[nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port)] = true
+		infected[nodeList.LocalNode.Addr+":"+strconv.Itoa(nodeList.LocalNode.Port)] = true
 
 		// Update local node information
-		nodeList.Set(nodeList.localNode)
+		nodeList.Set(nodeList.LocalNode)
 
 		// Set up the heartbeat data packet
 		p := common.Packet{
-			Node:      nodeList.localNode,
+			Node:      nodeList.LocalNode,
 			Infected:  infected,
 			SecretKey: nodeList.SecretKey,
 		}
@@ -89,7 +91,7 @@ func unmarshalPacket(bs []byte, p *common.Packet) error {
 
 func handleError(nodeList *NodeList, err error, bs []byte) {
 	// Combine error logging (logic moved here)
-	nodeList.println("[Consumer Data Parsing Error]:", err, string(bs))
+	nodeList.Logger.Sugar().Panicln("[Consumer Data Parsing Error]:", err, string(bs))
 }
 
 func validatePacket(nodeList *NodeList, p common.Packet) bool {
@@ -105,7 +107,7 @@ func processMetadataPacket(nodeList *NodeList, p common.Packet) bool {
 			nodeList.metadata.Store(p.Metadata)
 			// Skip, do not broadcast, do not respond to initiator
 
-			nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
+			nodeList.Logger.Sugar().Infoln("[Metadata]: Recv new node metadata, node info:", nodeList.LocalNode.Addr+":"+strconv.Itoa(nodeList.LocalNode.Port))
 			return true
 		}
 		// If the packet's metadata version is older, this means the initiator's metadata version needs to be updated
@@ -117,9 +119,6 @@ func processMetadataPacket(nodeList *NodeList, p common.Packet) bool {
 			}
 		}
 		// Skip, do not broadcast
-		if p.Metadata.Update == nodeList.metadata.Load().(common.Metadata).Update {
-			nodeList.println("Metadat is same, skip")
-		}
 		return true
 	}
 	return false
@@ -128,11 +127,11 @@ func processMetadataPacket(nodeList *NodeList, p common.Packet) bool {
 func processRegularPacket(nodeList *NodeList, p common.Packet) {
 	// Update local list and broadcast (logic moved here)
 	node := p.Node
-	nodeList.println("[Recv]:", node.Addr+":"+strconv.Itoa(node.Port))
+	//nodeList.println("[Recv]:", node.Addr+":"+strconv.Itoa(node.Port))
 	nodeList.Set(node)
 	if p.IsUpdate {
 		nodeList.metadata.Store(p.Metadata)
-		nodeList.println("[Metadata]: Recv new node metadata, node info:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
+		nodeList.Logger.Sugar().Panicln("[Metadata]: Recv new node metadata, node info:", nodeList.LocalNode.Addr+":"+strconv.Itoa(nodeList.LocalNode.Port))
 	}
 	broadcast(nodeList, p)
 }
@@ -185,7 +184,7 @@ func broadcast(nodeList *NodeList, p common.Packet) {
 	for _, v := range targetNodes {
 		bs, err := json.Marshal(p)
 		if err != nil {
-			nodeList.println("[Infection Error]:", err)
+			nodeList.Logger.Sugar().Panic("[Infection Error]:", err)
 		}
 
 		// Send the packet
@@ -203,7 +202,7 @@ func fastBroadcast(nodeList *NodeList, p common.Packet) {
 			break
 		}
 
-		if v.Addr == nodeList.localNode.Addr && v.Port == nodeList.localNode.Port {
+		if v.Addr == nodeList.LocalNode.Addr && v.Port == nodeList.LocalNode.Port {
 			continue
 		}
 
@@ -243,18 +242,18 @@ func fastBroadcast(nodeList *NodeList, p common.Packet) {
 func sendGroup(nodeList *NodeList, nodes []common.Node, p common.Packet) {
 	mapId := nodeList.Counter.Next()
 	if mapId == 0 {
-		nodeList.println("[Map ID error]: mapId is 0")
+		nodeList.Logger.Sugar().Panicln("[Map ID error]: mapId is 0")
 	}
 	p.Mapkey = mapId
 	p.Type = 1
 
 	if err := bpf.TcPushtoMap(nodeList.Program, mapId, nodes); err != nil {
-		nodeList.println("[TC error]:", "Failed to push to map", err)
+		nodeList.Logger.Sugar().Panicln("[TC error]:", "Failed to push to map", err)
 	}
 
 	bs, err := json.Marshal(p)
 	if err != nil {
-		nodeList.println("[Infection Error]:", err)
+		nodeList.Logger.Sugar().Panicln("[Infection Error]:", err)
 	}
 
 	addr := nodes[0].Addr
@@ -269,7 +268,7 @@ func swapRequest(nodeList *NodeList) {
 	p := common.Packet{
 		// Include local node info in the packet, the receiver uses this to respond to the request
 		Type:      2,
-		Node:      nodeList.localNode,
+		Node:      nodeList.LocalNode,
 		Infected:  make(map[string]bool),
 		Metadata:  nodeList.metadata.Load().(common.Metadata),
 		SecretKey: nodeList.SecretKey,
@@ -281,20 +280,20 @@ func swapRequest(nodeList *NodeList) {
 	// Convert the packet to JSON
 	bs, err := json.Marshal(p)
 	if err != nil {
-		nodeList.println("[Swap Request Parsing Error]:", err)
+		nodeList.Logger.Sugar().Panicln("[Swap Request Parsing Error]:", err)
 	}
 
 	// Randomly select a node from the node list and initiate a data exchange request
 	for i := 0; i < len(nodes); i++ {
 		// If the node is the local node, skip it
-		if nodes[i].Addr == nodeList.localNode.Addr && nodes[i].Port == nodeList.localNode.Port {
+		if nodes[i].Addr == nodeList.LocalNode.Addr && nodes[i].Port == nodeList.LocalNode.Port {
 			continue
 		}
 		// Send the request
 		write(nodeList, nodes[i].Addr, nodes[i].Port, bs)
 
 		if nodeList.IsPrint {
-			nodeList.println("[Swap Request]:", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port), "->", nodes[i].Addr+":"+strconv.Itoa(nodes[i].Port))
+			nodeList.Logger.Sugar().Infoln("[Swap Request]:", nodeList.LocalNode.Addr+":"+strconv.Itoa(nodeList.LocalNode.Port), "->", nodes[i].Addr+":"+strconv.Itoa(nodes[i].Port))
 		}
 		break
 	}
@@ -305,7 +304,7 @@ func swapResponse(nodeList *NodeList, node common.Node) {
 	// Set as a swap packet
 	p := common.Packet{
 		Type:      3,
-		Node:      nodeList.localNode,
+		Node:      nodeList.LocalNode,
 		Infected:  make(map[string]bool),
 		Metadata:  nodeList.metadata.Load().(common.Metadata),
 		SecretKey: nodeList.SecretKey,
@@ -313,13 +312,29 @@ func swapResponse(nodeList *NodeList, node common.Node) {
 
 	bs, err := json.Marshal(p)
 	if err != nil {
-		nodeList.println("[Error]:", err)
+		nodeList.Logger.Sugar().Panicln("[Error]:", err)
 	}
 
 	// Respond to the initiating node
 	write(nodeList, node.Addr, node.Port, bs)
 
 	if nodeList.IsPrint {
-		nodeList.println("[Swap Response]:", node.Addr+":"+strconv.Itoa(node.Port), "<-", nodeList.localNode.Addr+":"+strconv.Itoa(nodeList.localNode.Port))
+		nodeList.Logger.Sugar().Infoln("[Swap Response]:", node.Addr+":"+strconv.Itoa(node.Port), "<-", nodeList.LocalNode.Addr+":"+strconv.Itoa(nodeList.LocalNode.Port))
+	}
+}
+
+// write
+func write(nodeList *NodeList, addr string, port int, data []byte) {
+	transport.UdpWrite(nodeList.Logger, addr, port, data)
+}
+
+// listen
+func listen(nodeList *NodeList, mq chan []byte) {
+	if nodeList.Protocol == "UDP" || nodeList.Protocol == "TC" {
+		transport.UdpListen(nodeList.Logger, nodeList.ListenAddr, nodeList.LocalNode.Port, nodeList.Size, mq)
+	} else if nodeList.Protocol == "XDP" {
+		transport.XdpListen(nodeList.Xsk, mq)
+	} else {
+		fmt.Println("Protocol not supported, only UDP, TC and XDP.")
 	}
 }

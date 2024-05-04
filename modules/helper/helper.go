@@ -1,11 +1,11 @@
-package cmd
+package helper
 
 import (
 	"log"
 
 	"github.com/asavie/xdp"
-	bpf "github.com/kerwenwwer/xdp-gossip/bpf"
-	common "github.com/kerwenwwer/xdp-gossip/common"
+	bpf "github.com/kerwenwwer/eGossip/pkg/bpf"
+	common "github.com/kerwenwwer/eGossip/pkg/common"
 	"github.com/vishvananda/netlink"
 )
 
@@ -39,8 +39,8 @@ func ProgramHandler(LinkName string, obj *bpf.BpfObjects, debug bool, mode int) 
 
 	// Create AF_XDP socket
 	xsk, err := xdp.NewSocket(link.Attrs().Index, 0, &xdp.SocketOptions{
-		NumFrames:              128,
-		FrameSize:              2048,
+		NumFrames:              256,
+		FrameSize:              4096,
 		FillRingNumDescs:       64,
 		CompletionRingNumDescs: 64,
 		RxRingNumDescs:         64,
