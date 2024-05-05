@@ -13,11 +13,11 @@ bpf-objects:
 
 # Rule to build the main application
 build: bpf-objects
-	go build -o ./bin/xdp-gossip ./main.go
+	go build -o ./bin/egossip ./cmd/egossip-daemon/egossip.go
 
 # Rule to build the Docker image
 docker-build:
-	docker build -t $(DOCKER_TAG) .
+	docker build --no-cache -t $(DOCKER_TAG) .
 
 # Rule to push the Docker image to the repository
 docker-push:

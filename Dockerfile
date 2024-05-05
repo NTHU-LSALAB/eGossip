@@ -19,7 +19,7 @@ RUN apt-get update && \
 
 # Copy necessary files from the host to the container filesystem
 COPY pkg/bpf/* /bpf/
-COPY bin/xdp-gossip /usr/local/bin/xdp-gossip
+COPY bin/egossip /usr/local/bin/egossip
 COPY k8s/entrypoint.sh /entrypoint.sh
 
 # Ensure the entrypoint script is executable
